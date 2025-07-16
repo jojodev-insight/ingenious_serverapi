@@ -46,7 +46,7 @@ def test_simple_data_pipeline():
     
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
-        provider="deepseek"
+        provider="openai"
     )
     
     print(f"✅ Success: {result['success']}")
@@ -113,7 +113,7 @@ def test_number_processing_pipeline():
     
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
-        provider="deepseek"
+        provider="openai"
     )
     
     print(f"✅ Success: {result['success']}")
@@ -178,7 +178,7 @@ def test_text_formatting_pipeline():
     
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
-        provider="deepseek"
+        provider="openai"
     )
     
     print(f"✅ Success: {result['success']}")
@@ -228,7 +228,7 @@ def test_error_recovery_pipeline():
     
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
-        provider="deepseek"
+        provider="openai"
     )
     
     print(f"📊 Overall Success: {result['success']}")
@@ -307,7 +307,7 @@ def test_complex_data_pipeline():
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
         initial_data=initial_data,
-        provider="deepseek"
+        provider="openai"
     )
     
     print(f"✅ Success: {result['success']}")

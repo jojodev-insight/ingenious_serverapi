@@ -35,7 +35,7 @@ def test_explicit_pipeline():
     
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
-        provider="deepseek"
+        provider="openai"
     )
     
     print(f"Success: {result['success']}")
@@ -80,7 +80,7 @@ def test_content_writer_literal():
     
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
-        provider="deepseek"
+        provider="openai"
     )
     
     print(f"Success: {result['success']}")

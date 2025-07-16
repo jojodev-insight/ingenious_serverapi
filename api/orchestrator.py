@@ -544,3 +544,225 @@ class TaskOrchestrator:
                 })
         
         return flow_summary
+    
+    def run_agent_stream(
+        self, 
+        agent_name: str, 
+        task_data: Dict[str, Any],
+        provider: Optional[str] = None,
+        model_name: Optional[str] = None,
+        model_config: Optional[Union[ModelConfig, Dict[str, Any]]] = None,
+        agent_config: Optional[Dict[str, Any]] = None,
+        enable_fallback: bool = True
+    ):
+        """Run a specific agent with streaming output.
+        
+        Args:
+            agent_name: Name of the agent to run.
+            task_data: Data for the agent task.
+            provider: LLM provider to use (defaults to "openai" for Azure OpenAI).
+            model_name: Specific model to use.
+            model_config: Model configuration.
+            agent_config: Additional agent configuration.
+            enable_fallback: Whether to fallback to DeepSeek if OpenAI fails.
+            
+        Yields:
+            Dictionary chunks containing streaming execution results.
+        """
+        # Default to OpenAI (Azure OpenAI) if no provider specified
+        if provider is None:
+            provider = "openai"
+        
+        job_id = str(uuid.uuid4())
+        start_time = time.time()
+        
+        orchestrator_logger.log_orchestrator_start(job_id, agent_name)
+        
+        try:
+            agent = self.create_agent_instance(
+                agent_name=agent_name,
+                provider=provider,
+                model_name=model_name,
+                model_config=model_config,
+                agent_config=agent_config
+            )
+            
+            agent_info = agent.get_model_info()
+            orchestrator_logger.info(f"Streaming agent '{agent_name}' created with provider: {agent_info['provider']}, model: {agent_info['model_name']}")
+            
+            # Yield initial orchestrator metadata
+            yield {
+                "success": True,
+                "job_id": job_id,
+                "agent_name": agent_name,
+                "provider": agent_info['provider'],
+                "model_name": agent_info['model_name'],
+                "orchestrator": "TaskOrchestrator",
+                "stream": True,
+                "type": "orchestrator_start"
+            }
+            
+            success = False
+            error_message = None
+            
+            try:
+                # Stream from the agent
+                for chunk in agent.execute_stream(task_data):
+                    if chunk["success"]:
+                        # Add orchestrator metadata to each chunk
+                        chunk.update({
+                            "job_id": job_id,
+                            "orchestrator": "TaskOrchestrator"
+                        })
+                        yield chunk
+                        
+                        if chunk["type"] == "complete":
+                            success = True
+                    else:
+                        error_message = chunk.get("error", "Unknown error")
+                        if enable_fallback and provider.lower() == "openai":
+                            orchestrator_logger.warning(f"OpenAI streaming failed for agent '{agent_name}', attempting DeepSeek fallback")
+                            yield from self._run_agent_stream_with_fallback(
+                                agent_name, task_data, job_id, start_time, 
+                                model_name, model_config, agent_config
+                            )
+                            return
+                        else:
+                            chunk.update({
+                                "job_id": job_id,
+                                "orchestrator": "TaskOrchestrator"
+                            })
+                            yield chunk
+                            return
+            
+            except Exception as e:
+                error_message = str(e)
+                if enable_fallback and provider.lower() == "openai":
+                    orchestrator_logger.warning(f"OpenAI streaming exception for agent '{agent_name}': {e}. Attempting DeepSeek fallback")
+                    yield from self._run_agent_stream_with_fallback(
+                        agent_name, task_data, job_id, start_time,
+                        model_name, model_config, agent_config
+                    )
+                    return
+                else:
+                    raise
+            
+            # Yield final orchestrator metadata
+            execution_time = time.time() - start_time
+            yield {
+                "success": success,
+                "job_id": job_id,
+                "execution_time": execution_time,
+                "orchestrator": "TaskOrchestrator",
+                "stream": True,
+                "type": "orchestrator_complete"
+            }
+            
+            orchestrator_logger.log_orchestrator_end(job_id, success, execution_time)
+            
+        except Exception as e:
+            execution_time = time.time() - start_time
+            orchestrator_logger.error(f"Orchestrator streaming job {job_id} failed", {"error": str(e)})
+            orchestrator_logger.log_orchestrator_end(job_id, False, execution_time)
+            
+            yield {
+                "success": False,
+                "error": str(e),
+                "job_id": job_id,
+                "execution_time": execution_time,
+                "orchestrator": "TaskOrchestrator",
+                "stream": True,
+                "type": "orchestrator_error"
+            }
+    
+    def _run_agent_stream_with_fallback(
+        self, 
+        agent_name: str, 
+        task_data: Dict[str, Any],
+        job_id: str,
+        start_time: float,
+        model_name: Optional[str] = None,
+        model_config: Optional[Union[ModelConfig, Dict[str, Any]]] = None,
+        agent_config: Optional[Dict[str, Any]] = None
+    ):
+        """Run agent streaming with DeepSeek fallback.
+        
+        Args:
+            agent_name: Name of the agent to run.
+            task_data: Data for the agent task.
+            job_id: Job ID for logging.
+            start_time: Start time for timing.
+            model_name: Specific model to use.
+            model_config: Model configuration.
+            agent_config: Additional agent configuration.
+            
+        Yields:
+            Dictionary chunks containing streaming execution results.
+        """
+        try:
+            fallback_agent = self.create_agent_instance(
+                agent_name=agent_name,
+                provider="deepseek",
+                model_name=model_name,
+                model_config=model_config,
+                agent_config=agent_config
+            )
+            
+            agent_info = fallback_agent.get_model_info()
+            orchestrator_logger.info(f"Fallback streaming agent '{agent_name}' created with provider: {agent_info['provider']}")
+            
+            # Yield fallback notification
+            yield {
+                "success": True,
+                "job_id": job_id,
+                "agent_name": agent_name,
+                "provider": agent_info['provider'],
+                "model_name": agent_info['model_name'],
+                "orchestrator": "TaskOrchestrator",
+                "stream": True,
+                "type": "fallback_start",
+                "message": "Switched to DeepSeek fallback"
+            }
+            
+            success = False
+            
+            # Stream from fallback agent
+            for chunk in fallback_agent.execute_stream(task_data):
+                chunk.update({
+                    "job_id": job_id,
+                    "orchestrator": "TaskOrchestrator",
+                    "fallback": True
+                })
+                yield chunk
+                
+                if chunk["success"] and chunk["type"] == "complete":
+                    success = True
+            
+            execution_time = time.time() - start_time
+            yield {
+                "success": success,
+                "job_id": job_id,
+                "execution_time": execution_time,
+                "orchestrator": "TaskOrchestrator",
+                "stream": True,
+                "type": "orchestrator_complete",
+                "fallback": True
+            }
+            
+            orchestrator_logger.log_orchestrator_end(job_id, success, execution_time)
+            
+        except Exception as e:
+            execution_time = time.time() - start_time
+            orchestrator_logger.error(f"Fallback streaming job {job_id} failed", {"error": str(e)})
+            orchestrator_logger.log_orchestrator_end(job_id, False, execution_time)
+            
+            yield {
+                "success": False,
+                "error": str(e),
+                "job_id": job_id,
+                "execution_time": execution_time,
+                "orchestrator": "TaskOrchestrator",
+                "stream": True,
+                "type": "orchestrator_error",
+                "fallback": True
+            }

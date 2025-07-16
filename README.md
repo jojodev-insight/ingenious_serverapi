@@ -63,7 +63,19 @@ A modular and testable Python project that uses the **Autogen API**, supporting 
 
 ### Configuration
 
-1. **Update the `.env` file** with your API keys and settings:
+1. **Create your environment configuration**:
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+   
+   # On Windows (Command Prompt)
+   copy .env.example .env
+   
+   # On Windows (PowerShell)
+   Copy-Item .env.example .env
+   ```
+
+2. **Update the `.env` file** with your API keys and settings:
    ```env
    # API Keys
    OPENAI_API_KEY=your_openai_api_key_here
@@ -192,7 +204,8 @@ autogen_project/
 │   ├── test_file_processing.py # File processing tests
 │   ├── test_logger.py          # Logger tests
 │   └── test_orchestrator.py    # Orchestrator tests
-├── .env                        # Environment configuration
+├── .env                        # Environment configuration (create from .env.example)
+├── .env.example                # Example environment configuration (safe for git)
 ├── .gitignore                  # Git ignore rules
 ├── cli.py                      # Command-line interface
 ├── curl_equivalent.py          # API usage examples (Python)
@@ -439,6 +452,118 @@ def run_advanced_workflow():
 
 if __name__ == "__main__":
     run_advanced_workflow()
+```
+
+#### 6. Streaming Endpoints (Real-time Response)
+
+**Stream Single Agent Response:**
+```bash
+curl -X POST "http://localhost:8000/run-agent-stream" \
+     -H "Content-Type: application/json" \
+     -H "Accept: text/event-stream" \
+     --no-buffer \
+     -d '{
+       "agent_name": "content_writer",
+       "task_data": {
+         "topic": "The Future of AI in Healthcare",
+         "style": "informative and engaging",
+         "length": "300 words",
+         "audience": "medical professionals"
+       },
+       "provider": "openai"
+     }'
+```
+
+**Stream Multi-Agent Workflow:**
+```bash
+curl -X POST "http://localhost:8000/run-workflow-stream" \
+     -H "Content-Type: application/json" \
+     -H "Accept: text/event-stream" \
+     --no-buffer \
+     -d '{
+       "workflow": [
+         {
+           "agent": "summary",
+           "task_data": {
+             "text": "Machine learning is transforming healthcare through predictive analytics, medical imaging, drug discovery, and personalized treatment plans..."
+           }
+         },
+         {
+           "agent": "formatter",
+           "task_data": {
+             "text": "{{previous_result}}",
+             "format": "bullet points with emojis"
+           }
+         }
+       ],
+       "provider": "openai"
+     }'
+```
+
+**Python Streaming Client Example:**
+```python
+# Save this as streaming_client_example.py and run with:
+#   uv run streaming_client_example.py
+import requests
+import json
+
+def stream_agent_response():
+    url = "http://localhost:8000/run-agent-stream"
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream"
+    }
+    
+    data = {
+        "agent_name": "content_writer",
+        "task_data": {
+            "topic": "Quantum Computing Breakthroughs",
+            "style": "technical but accessible",
+            "length": "250 words",
+            "audience": "technology enthusiasts"
+        },
+        "provider": "openai"
+    }
+    
+    print("🚀 Starting streaming request...")
+    
+    response = requests.post(url, headers=headers, json=data, stream=True)
+    
+    if response.status_code == 200:
+        print("📡 Receiving stream...")
+        content_chunks = []
+        
+        for line in response.iter_lines(decode_unicode=True):
+            if line.startswith("data: "):
+                try:
+                    chunk = json.loads(line[6:])  # Remove "data: " prefix
+                    
+                    if chunk.get("type") == "orchestrator_start":
+                        print(f"🚀 Job {chunk['job_id']} started")
+                        print(f"🤖 Agent: {chunk['agent_name']}")
+                        print(f"⚡ Provider: {chunk['provider']}")
+                        print("\n📄 Content:")
+                        
+                    elif chunk.get("type") == "chunk":
+                        print(chunk["chunk"], end="", flush=True)
+                        content_chunks.append(chunk["chunk"])
+                        
+                    elif chunk.get("type") == "complete":
+                        print(f"\n\n✅ Stream completed")
+                        print(f"📊 Total characters: {len(''.join(content_chunks))}")
+                        break
+                        
+                    elif chunk.get("type") == "stream_error":
+                        print(f"❌ Error: {chunk['error']}")
+                        break
+                        
+                except json.JSONDecodeError:
+                    pass  # Skip invalid JSON lines
+    else:
+        print(f"❌ Request failed: {response.status_code}")
+
+if __name__ == "__main__":
+    stream_agent_response()
 ```
 
 ### 🐍 Local Python Code Usage

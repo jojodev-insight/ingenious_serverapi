@@ -40,7 +40,7 @@ def test_basic_data_pipeline():
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
         initial_data=initial_data,
-        provider="deepseek"
+        provider="openai"
     )
     
     print(f"Success: {result['success']}")

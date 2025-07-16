@@ -3,7 +3,10 @@
 from typing import Dict, Any, Optional, List
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+import json
+import asyncio
 
 from api.orchestrator import TaskOrchestrator
 from core import config, orchestrator_logger
@@ -130,7 +133,10 @@ async def root():
         "available_endpoints": [
             "/agents - List available agents",
             "/run-agent - Run a single agent task",
-            "/run-workflow - Run a multi-agent workflow"
+            "/run-agent-stream - Run a single agent task with streaming",
+            "/run-workflow - Run a multi-agent workflow",
+            "/run-workflow-stream - Run a multi-agent workflow with streaming",
+            "/run-enhanced-workflow - Run enhanced workflow with per-step config"
         ]
     }
 
@@ -365,6 +371,155 @@ async def list_agent_types():
 #     except Exception as e:
 #         orchestrator_logger.error(f"API error creating custom agent '{name}'", {"error": str(e)})
 #         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/run-agent-stream")
+async def run_agent_stream(request: TaskRequest):
+    """Run a single agent task with streaming output.
+    
+    Args:
+        request: Task request containing agent name, task data, and optional configurations.
+        
+    Returns:
+        Server-Sent Events stream of task execution.
+    """
+    try:
+        orchestrator_logger.info(f"API streaming request to run agent '{request.agent_name}' with provider: {request.provider or config.default_provider}")
+        
+        # Convert model config to dict if provided
+        model_config = None
+        if request.llm_config:
+            model_config = {k: v for k, v in request.llm_config.dict().items() if v is not None}
+        
+        def generate_stream():
+            """Generate SSE stream from orchestrator."""
+            try:
+                for chunk in orchestrator.run_agent_stream(
+                    agent_name=request.agent_name,
+                    task_data=request.task_data,
+                    provider=request.provider,
+                    model_name=request.model_name,
+                    model_config=model_config,
+                    agent_config=request.agent_config
+                ):
+                    # Convert chunk to JSON and send as SSE
+                    chunk_json = json.dumps(chunk)
+                    yield f"data: {chunk_json}\n\n"
+                    
+                # Send completion signal
+                completion_chunk = {"type": "stream_complete", "success": True}
+                yield f"data: {json.dumps(completion_chunk)}\n\n"
+                
+            except Exception as e:
+                error_chunk = {"type": "stream_error", "success": False, "error": str(e)}
+                yield f"data: {json.dumps(error_chunk)}\n\n"
+        
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Content-Type": "text/event-stream",
+            }
+        )
+        
+    except Exception as e:
+        orchestrator_logger.error(f"API streaming error for agent '{request.agent_name}'", {"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/run-workflow-stream")
+async def run_workflow_stream(request: WorkflowRequest):
+    """Run a multi-agent workflow with streaming output.
+    
+    Args:
+        request: Workflow request containing steps and optional provider.
+        
+    Returns:
+        Server-Sent Events stream of workflow execution.
+    """
+    try:
+        orchestrator_logger.info(f"API streaming request to run workflow with {len(request.workflow)} steps using provider: {request.provider or config.default_provider}")
+        
+        def generate_workflow_stream():
+            """Generate SSE stream from workflow execution."""
+            try:
+                workflow_data = [step.dict() for step in request.workflow]
+                
+                # For now, execute workflow steps sequentially with streaming
+                # This is a simplified version - could be enhanced for true workflow streaming
+                step_results = []
+                
+                for i, step in enumerate(workflow_data):
+                    step_info = {
+                        "type": "workflow_step_start",
+                        "success": True,
+                        "step_number": i + 1,
+                        "total_steps": len(workflow_data),
+                        "agent_name": step["agent"]
+                    }
+                    yield f"data: {json.dumps(step_info)}\n\n"
+                    
+                    # Stream the individual agent execution
+                    step_result = None
+                    for chunk in orchestrator.run_agent_stream(
+                        agent_name=step["agent"],
+                        task_data=step["task_data"],
+                        provider=request.provider
+                    ):
+                        # Add step context to chunk
+                        chunk["workflow_step"] = i + 1
+                        chunk["total_steps"] = len(workflow_data)
+                        
+                        chunk_json = json.dumps(chunk)
+                        yield f"data: {chunk_json}\n\n"
+                        
+                        if chunk.get("type") == "complete":
+                            step_result = chunk.get("response")
+                    
+                    step_results.append({
+                        "step": i + 1,
+                        "agent": step["agent"],
+                        "result": step_result,
+                        "success": step_result is not None
+                    })
+                    
+                    step_complete = {
+                        "type": "workflow_step_complete",
+                        "success": True,
+                        "step_number": i + 1,
+                        "total_steps": len(workflow_data)
+                    }
+                    yield f"data: {json.dumps(step_complete)}\n\n"
+                
+                # Send workflow completion
+                completion_chunk = {
+                    "type": "workflow_complete",
+                    "success": True,
+                    "completed_steps": len(step_results),
+                    "total_steps": len(workflow_data),
+                    "results": step_results
+                }
+                yield f"data: {json.dumps(completion_chunk)}\n\n"
+                
+            except Exception as e:
+                error_chunk = {"type": "workflow_error", "success": False, "error": str(e)}
+                yield f"data: {json.dumps(error_chunk)}\n\n"
+        
+        return StreamingResponse(
+            generate_workflow_stream(),
+            media_type="text/plain",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Content-Type": "text/event-stream",
+            }
+        )
+        
+    except Exception as e:
+        orchestrator_logger.error("API streaming error running workflow", {"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health")

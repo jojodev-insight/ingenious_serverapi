@@ -610,8 +610,23 @@ class BaseAgent(ABC):
         """
         pass
     
-    def execute(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, task_data: Dict[str, Any], stream: bool = False) -> Dict[str, Any]:
         """Execute the agent task.
+        
+        Args:
+            task_data: Input data for the task.
+            stream: Whether to stream the response or return complete response.
+            
+        Returns:
+            Dictionary containing execution results.
+        """
+        if stream:
+            return self.execute_stream(task_data)
+        else:
+            return self.execute_sync(task_data)
+    
+    def execute_sync(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute the agent task synchronously (non-streaming).
         
         Args:
             task_data: Input data for the task.
@@ -634,6 +649,7 @@ class BaseAgent(ABC):
             # Prepare API call parameters
             api_params = self.model_config.to_dict()
             api_params["messages"] = messages
+            api_params["stream"] = False
             
             # Call the LLM
             response = self.client.chat.completions.create(**api_params)
@@ -644,7 +660,8 @@ class BaseAgent(ABC):
                 "agent_name": self.name,
                 "provider": self.provider,
                 "model_name": self.model_config.model_name,
-                "usage": getattr(response, 'usage', None)
+                "usage": getattr(response, 'usage', None),
+                "stream": False
             }
             
             agent_logger.log_agent_end(self.name, str(task_data), True)
@@ -659,5 +676,90 @@ class BaseAgent(ABC):
                 "error": str(e),
                 "agent_name": self.name,
                 "provider": self.provider,
-                "model_name": getattr(self.model_config, 'model_name', 'unknown')
+                "model_name": getattr(self.model_config, 'model_name', 'unknown'),
+                "stream": False
+            }
+    
+    def execute_stream(self, task_data: Dict[str, Any]):
+        """Execute the agent task with streaming response.
+        
+        Args:
+            task_data: Input data for the task.
+            
+        Yields:
+            Dictionary chunks containing streaming execution results.
+        """
+        agent_logger.log_agent_start(self.name, str(task_data))
+        
+        try:
+            # Prepare the task prompt
+            prompt = self.prepare_task(task_data)
+            
+            # Create messages
+            messages = [
+                {"role": "system", "content": self.system_message},
+                {"role": "user", "content": prompt}
+            ]
+            
+            # Prepare API call parameters
+            api_params = self.model_config.to_dict()
+            api_params["messages"] = messages
+            api_params["stream"] = True
+            
+            # Call the LLM with streaming
+            stream = self.client.chat.completions.create(**api_params)
+            
+            full_content = ""
+            
+            # Yield initial metadata
+            yield {
+                "success": True,
+                "agent_name": self.name,
+                "provider": self.provider,
+                "model_name": self.model_config.model_name,
+                "stream": True,
+                "type": "start"
+            }
+            
+            # Stream the response
+            for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    content = chunk.choices[0].delta.content
+                    full_content += content
+                    
+                    yield {
+                        "success": True,
+                        "chunk": content,
+                        "agent_name": self.name,
+                        "provider": self.provider,
+                        "model_name": self.model_config.model_name,
+                        "stream": True,
+                        "type": "chunk"
+                    }
+            
+            # Yield final result
+            yield {
+                "success": True,
+                "response": full_content,
+                "agent_name": self.name,
+                "provider": self.provider,
+                "model_name": self.model_config.model_name,
+                "stream": True,
+                "type": "complete"
+            }
+            
+            agent_logger.log_agent_end(self.name, str(task_data), True)
+            
+        except Exception as e:
+            agent_logger.error(f"Agent '{self.name}' streaming execution failed", {"error": str(e)})
+            agent_logger.log_agent_end(self.name, str(task_data), False)
+            
+            yield {
+                "success": False,
+                "error": str(e),
+                "agent_name": self.name,
+                "provider": self.provider,
+                "model_name": getattr(self.model_config, 'model_name', 'unknown'),
+                "stream": True,
+                "type": "error"
             }

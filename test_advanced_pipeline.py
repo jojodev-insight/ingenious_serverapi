@@ -23,16 +23,16 @@ def run_workflow_with_fallback(orchestrator, workflow, initial_data=None):
             print("🟡 Azure OpenAI pipeline failed, falling back to DeepSeek...")
             
     except Exception as e:
-        print(f"🟡 Azure OpenAI error: {e}")
-        print("🟡 Falling back to DeepSeek...")
+        print(f"🟡 Primary OpenAI error: {e}")
+        print("🟡 Trying fallback configuration...")
     
-    # Fallback to DeepSeek
+    # Try alternative OpenAI configuration as fallback
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
         initial_data=initial_data,
-        provider="deepseek"  # Fallback to DeepSeek
+        provider="openai"  # Stay with OpenAI but try different config
     )
-    print("🟢 Using DeepSeek fallback")
+    print("🟢 Using OpenAI fallback configuration")
     return result
 
 def test_data_transformation_pipeline():

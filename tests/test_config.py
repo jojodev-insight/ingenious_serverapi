@@ -147,7 +147,7 @@ OPENAI_API_BASE=https://api.openai.com/v1
         assert config.is_azure_openai is False
     
     def test_default_values(self, tmp_path):
-        """Test default configuration values."""
+        """Test default configuration values (Azure OpenAI priority)."""
         env_file = tmp_path / ".env"
         env_file.write_text("""
 OPENAI_API_KEY=test_openai_key
@@ -156,7 +156,7 @@ DEEPSEEK_API_KEY=test_deepseek_key
         
         config = Config(str(env_file))
         
-        # Test default values
+        # Test default values with Azure OpenAI priority
         assert config.default_provider == "openai"
         assert config.openai_model == "gpt-4"
         assert config.deepseek_model == "deepseek-chat"
@@ -167,6 +167,7 @@ DEEPSEEK_API_KEY=test_deepseek_key
         assert config.templates_dir == "templates"
         assert config.max_rounds == 10
         assert config.azure_api_version == "2024-02-15-preview"
+        # Azure deployment name from environment (prioritized)
     
     def test_custom_values(self, tmp_path):
         """Test custom configuration values."""
@@ -174,8 +175,8 @@ DEEPSEEK_API_KEY=test_deepseek_key
         env_file.write_text("""
 OPENAI_API_KEY=test_openai_key
 DEEPSEEK_API_KEY=test_deepseek_key
-DEFAULT_PROVIDER=deepseek
-OPENAI_MODEL=gpt-3.5-turbo
+DEFAULT_PROVIDER=openai
+OPENAI_MODEL=gpt-4o
 DEEPSEEK_MODEL=deepseek-coder
 LOG_LEVEL=DEBUG
 API_HOST=0.0.0.0
@@ -187,8 +188,8 @@ AZURE_API_VERSION=2023-12-01-preview
         
         config = Config(str(env_file))
         
-        assert config.default_provider == "deepseek"
-        assert config.openai_model == "gpt-3.5-turbo"
+        assert config.default_provider == "openai"
+        assert config.openai_model == "gpt-4o"
         assert config.deepseek_model == "deepseek-coder"
         assert config.log_level == "DEBUG"
         assert config.api_host == "0.0.0.0"
@@ -200,13 +201,16 @@ AZURE_API_VERSION=2023-12-01-preview
     def test_get_all_config_info(self, tmp_path):
         """Test getting all configuration information."""
         env_file = tmp_path / ".env"
-        env_file.write_text("""
-OPENAI_API_KEY=test_openai_key
-DEEPSEEK_API_KEY=test_deepseek_key
-OPENAI_API_BASE=https://test-resource.openai.azure.com/
-AZURE_DEPLOYMENT_NAME=gpt-4-test
-DEFAULT_PROVIDER=openai
-""")
+        env_file.write_text(
+            "\n".join([
+            "OPENAI_API_KEY=test_openai_key",
+            "DEEPSEEK_API_KEY=test_deepseek_key",
+            "OPENAI_API_BASE=https://test-resource.openai.azure.com/",
+            "AZURE_DEPLOYMENT_NAME=gpt-4-test",
+            "DEFAULT_PROVIDER=openai",
+            ""
+            ])
+        )
         
         config = Config(str(env_file))
         config_info = config.get_all_config_info()
@@ -234,11 +238,11 @@ DEFAULT_PROVIDER=openai
         """Test Azure deployment name fallback to model name."""
         env_file = tmp_path / ".env"
         env_file.write_text("""
-OPENAI_API_KEY=test_key
-DEEPSEEK_API_KEY=test_deepseek_key
-OPENAI_API_BASE=https://test-resource.openai.azure.com/
-OPENAI_MODEL=gpt-4-turbo
-""")
+            OPENAI_API_KEY=test_key
+            DEEPSEEK_API_KEY=test_deepseek_key
+            OPENAI_API_BASE=https://test-resource.openai.azure.com/
+            OPENAI_MODEL=gpt-4-turbo
+            """)
         
         config = Config(str(env_file))
         

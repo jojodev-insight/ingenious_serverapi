@@ -414,5 +414,11 @@ async def main():
         print(f"❌ Workflow Error: {final_report['error']}")
         print(f"📊 Completed Stages: {final_report['completed_stages']}/3")
 
+    
+    return final_report
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    frep = asyncio.run(main())
+    print("\n" + "=" * 60)
+    print(frep)
+    print("\n🎉 Advanced Workflow Execution Complete!")

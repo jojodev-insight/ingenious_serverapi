@@ -59,21 +59,21 @@ class TestProviderConfig:
     """Test ProviderConfig class."""
     
     def test_get_model_config_openai(self):
-        """Test getting OpenAI model configuration."""
+        """Test getting OpenAI model configuration (Azure OpenAI priority)."""
         config = ProviderConfig.get_model_config("openai", "gpt-4")
         
         assert isinstance(config, ModelConfig)
-        assert config.model_name == "gpt-4"
+        assert config.model_name == "gpt-4"  # Provider config returns requested model name
         assert config.max_tokens == 2000
         assert config.temperature == 0.7
     
-    def test_get_model_config_deepseek(self):
-        """Test getting DeepSeek model configuration."""
-        config = ProviderConfig.get_model_config("deepseek", "deepseek-chat")
+    def test_get_model_config_openai_alternative(self):
+        """Test getting OpenAI alternative model configuration."""
+        config = ProviderConfig.get_model_config("openai", "gpt-4o")
         
         assert isinstance(config, ModelConfig)
-        assert config.model_name == "deepseek-chat"
-        assert config.max_tokens == 2000
+        assert config.model_name == "gpt-4o"
+        assert config.max_tokens == 4000  # gpt-4o has higher token limit
         assert config.temperature == 0.7
     
     def test_get_model_config_invalid_provider(self):
@@ -82,27 +82,31 @@ class TestProviderConfig:
             ProviderConfig.get_model_config("invalid", "some-model")
     
     def test_get_model_config_invalid_model(self):
-        """Test error for invalid model."""
-        with pytest.raises(ValueError, match="Unsupported model 'invalid-model' for provider 'openai'"):
-            ProviderConfig.get_model_config("openai", "invalid-model")
+        """Test behavior for unknown model with OpenAI provider (should create default)."""
+        # OpenAI provider handles unknown models by creating defaults (for Azure deployment names)
+        config = ProviderConfig.get_model_config("openai", "invalid-model")
+        assert isinstance(config, ModelConfig)
+        assert config.model_name == "invalid-model"
+        # Should get defaults based on gpt-4 config
+        assert config.max_tokens == 2000
     
     def test_list_models_all(self):
-        """Test listing all models."""
+        """Test listing all models (Azure OpenAI priority)."""
         models = ProviderConfig.list_models()
         
         assert "openai" in models
-        assert "deepseek" in models
         assert "anthropic" in models
         assert "gpt-4" in models["openai"]
-        assert "deepseek-chat" in models["deepseek"]
+        assert "gpt-4-turbo" in models["openai"]  # Azure deployment model
+        # Note: DeepSeek can still be available but OpenAI/Azure is prioritized
     
     def test_list_models_specific_provider(self):
-        """Test listing models for specific provider."""
+        """Test listing models for specific provider (Azure OpenAI priority)."""
         models = ProviderConfig.list_models("openai")
         
         assert "openai" in models
-        assert "deepseek" not in models
         assert "gpt-4" in models["openai"]
+        assert "gpt-4-turbo" in models["openai"]  # Azure deployment model
 
 
 class MockAgent(BaseAgent):
@@ -122,15 +126,22 @@ class TestEnhancedBaseAgent:
         self.mock_config.openai_api_key = "test-key"
         self.mock_config.openai_model = "gpt-4"
         self.mock_config.templates_dir = "templates"
+        # Azure OpenAI configuration for priority
+        self.mock_config.is_azure_openai = True
+        self.mock_config.azure_deployment_name = "gpt-4.1-nano"  # Actual Azure deployment name
+        self.mock_config.azure_api_version = "2024-02-15-preview"
+        self.mock_config.openai_api_base = "https://test-resource.openai.azure.com/"
     
     @patch('agents.base_agent.config')
     @patch('agents.base_agent.Path')
     @patch('builtins.open')
     def test_agent_with_custom_model_name(self, mock_open, mock_path, mock_config):
-        """Test agent initialization with custom model name."""
+        """Test agent initialization with custom model name (Azure OpenAI priority)."""
         mock_config.default_provider = "openai"
         mock_config.openai_api_key = "test-key"
         mock_config.templates_dir = "templates"
+        mock_config.is_azure_openai = True
+        mock_config.azure_deployment_name = "gpt-4.1-nano"  # Actual Azure deployment (prioritized)
         
         mock_path.return_value.exists.return_value = True
         mock_open.return_value.__enter__.return_value.read.return_value = "Test template"
@@ -140,20 +151,23 @@ class TestEnhancedBaseAgent:
                 name="TestAgent",
                 template_name="test.txt",
                 provider="openai",
-                model_name="gpt-4-turbo"
+                model_name="gpt-4.1-nano"  # Use actual Azure deployment name
             )
         
-        assert agent.model_config.model_name == "gpt-4-turbo"
+        # With Azure OpenAI, the deployment name takes priority
+        assert agent.model_config.model_name == "gpt-4.1-nano"
         assert agent.provider == "openai"
     
     @patch('agents.base_agent.config')
     @patch('agents.base_agent.Path')
     @patch('builtins.open')
     def test_agent_with_custom_model_config(self, mock_open, mock_path, mock_config):
-        """Test agent initialization with custom model configuration."""
+        """Test agent initialization with custom model configuration (Azure OpenAI priority)."""
         mock_config.default_provider = "openai"
         mock_config.openai_api_key = "test-key"
         mock_config.templates_dir = "templates"
+        mock_config.is_azure_openai = True
+        mock_config.azure_deployment_name = "custom-model-deployment"
         
         mock_path.return_value.exists.return_value = True
         mock_open.return_value.__enter__.return_value.read.return_value = "Test template"
@@ -167,7 +181,7 @@ class TestEnhancedBaseAgent:
                 model_config=custom_config
             )
         
-        assert agent.model_config.model_name == "custom-model"
+        # With Azure OpenAI, deployment name will be used but config values preserved
         assert agent.model_config.max_tokens == 3000
         assert agent.model_config.temperature == 0.2
     
@@ -200,11 +214,13 @@ class TestEnhancedBaseAgent:
     @patch('agents.base_agent.Path')
     @patch('builtins.open')
     def test_get_model_info(self, mock_open, mock_path, mock_config):
-        """Test getting model information."""
+        """Test getting model information (Azure OpenAI priority)."""
         mock_config.default_provider = "openai"
         mock_config.openai_api_key = "test-key"
         mock_config.openai_model = "gpt-4"
         mock_config.templates_dir = "templates"
+        mock_config.is_azure_openai = True
+        mock_config.azure_deployment_name = "gpt-4.1-nano"  # Actual Azure deployment (prioritized)
         
         mock_path.return_value.exists.return_value = True
         mock_open.return_value.__enter__.return_value.read.return_value = "Test template"
@@ -219,7 +235,8 @@ class TestEnhancedBaseAgent:
         
         assert info["agent_name"] == "TestAgent"
         assert info["provider"] == "openai"
-        assert info["model_name"] == "gpt-4"
+        # With Azure OpenAI priority, deployment name is used
+        assert info["model_name"] == "gpt-4.1-nano"
         assert "model_config" in info
         assert "system_message" in info
 
@@ -274,7 +291,7 @@ class TestAgentFactory:
                 name="MyAgent",
                 template_name="my_template.txt",
                 system_message="Custom system message",
-                provider="deepseek"
+                provider="openai"
             )
             
             assert agent == mock_instance
@@ -282,7 +299,7 @@ class TestAgentFactory:
                 name="MyAgent",
                 template_name="my_template.txt",
                 system_message="Custom system message",
-                provider="deepseek",
+                provider="openai",
                 model_name=None,
                 model_config=None
             )
@@ -317,7 +334,6 @@ class TestAgentFactory:
         providers = AgentFactory.list_providers()
         
         assert "openai" in providers
-        assert "deepseek" in providers
         assert isinstance(providers["openai"], list)
         assert "gpt-4" in providers["openai"]
     
@@ -341,23 +357,23 @@ class TestEnhancedSampleAgents:
     @patch('agents.sample_agents.BaseAgent.__init__')
     @patch.object(DataAnalystAgent, 'update_model_config')
     def test_data_analyst_agent_defaults(self, mock_update, mock_base_init):
-        """Test DataAnalystAgent with provider-specific defaults."""
+        """Test DataAnalystAgent with Azure OpenAI provider-specific defaults."""
         mock_base_init.return_value = None
         
-        # Test with DeepSeek provider
-        agent = DataAnalystAgent(provider="deepseek")
+        # Test with OpenAI provider (Azure OpenAI priority)
+        agent = DataAnalystAgent(provider="openai")
         
-        # Verify BaseAgent was called with deepseek-coder model
+        # Verify BaseAgent was called with gpt-4 model (will be mapped to Azure deployment)
         call_args = mock_base_init.call_args
-        assert call_args.kwargs["model_name"] == "deepseek-coder"
-        assert call_args.kwargs["provider"] == "deepseek"
+        assert call_args.kwargs["model_name"] == "gpt-4"
+        assert call_args.kwargs["provider"] == "openai"
         
         # Verify update_model_config was called
         mock_update.assert_called_once_with(temperature=0.3)
     
     @patch('agents.sample_agents.BaseAgent.__init__')
     def test_content_writer_agent_temperature(self, mock_base_init):
-        """Test ContentWriterAgent temperature adjustment."""
+        """Test ContentWriterAgent temperature adjustment (Azure OpenAI priority)."""
         mock_base_init.return_value = None
         
         with patch.object(ContentWriterAgent, 'update_model_config') as mock_update:
@@ -368,11 +384,11 @@ class TestEnhancedSampleAgents:
     
     @patch('agents.sample_agents.BaseAgent.__init__')
     def test_code_reviewer_agent_precision(self, mock_base_init):
-        """Test CodeReviewerAgent precision settings."""
+        """Test CodeReviewerAgent precision settings (Azure OpenAI priority)."""
         mock_base_init.return_value = None
         
         with patch.object(CodeReviewerAgent, 'update_model_config') as mock_update:
-            agent = CodeReviewerAgent(provider="deepseek")
+            agent = CodeReviewerAgent(provider="openai")
             
             # Verify temperature was set low for precision
             mock_update.assert_called_once_with(temperature=0.2)

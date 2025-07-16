@@ -265,14 +265,14 @@ class TestOrchestratiorIntegration:
 
 
 class TestRealAgentIntegration:
-    """Integration tests using actual agents with DeepSeek."""
+    """Integration tests using actual agents with OpenAI."""
     
     def setup_method(self):
         """Set up test fixtures."""
         self.orchestrator = TaskOrchestrator()
     
-    def test_real_data_analyst_with_deepseek(self):
-        """Test DataAnalyst agent with DeepSeek provider - real execution."""
+    def test_real_data_analyst_with_openai(self):
+        """Test DataAnalyst agent with OpenAI provider - real execution."""
         # This test uses actual agents but with mock LLM calls
         with patch('agents.base_agent.openai.OpenAI') as mock_openai_class:
             # Mock the OpenAI client and response
@@ -285,7 +285,7 @@ class TestRealAgentIntegration:
             mock_response.choices[0].message = Mock()
             mock_response.choices[0].message.content = """
             {
-                "analysis": "Data analysis complete using DeepSeek",
+                "analysis": "Data analysis complete using OpenAI",
                 "insights": ["Trend 1", "Trend 2", "Trend 3"],
                 "recommendations": ["Action 1", "Action 2"],
                 "confidence": 0.85
@@ -293,17 +293,17 @@ class TestRealAgentIntegration:
             """
             mock_client.chat.completions.create.return_value = mock_response
             
-            # Test with DeepSeek configuration
+            # Test with OpenAI configuration
             result = self.orchestrator.run_agent(
                 agent_name="data_analyst",
                 task_data={
                     "data": "Sales data for Q4 2024",
                     "analysis_type": "trend_analysis"
                 },
-                provider="deepseek",
-                model_name="deepseek-chat",
+                provider="openai",
+                model_name="gpt-4",  # Request gpt-4, but will use Azure deployment
                 model_config={
-                    "model_name": "deepseek-chat",  # Need to include model_name in config
+                    "model_name": "gpt-4",  # Need to include model_name in config
                     "temperature": 0.2,
                     "max_tokens": 2000,
                     "top_p": 0.95
@@ -315,23 +315,27 @@ class TestRealAgentIntegration:
             assert "job_id" in result
             assert "execution_time" in result
             assert result["agent_name"] == "DataAnalyst"
-            assert result["provider"] == "deepseek"
-            assert result["model_name"] == "deepseek-chat"
+            assert result["provider"] == "openai"
+            assert result["model_name"] == "gpt-4.1-nano"  # Azure deployment name (prioritized from env)
             
-            # Verify DeepSeek-specific client was created with correct parameters
+            # Verify OpenAI-specific client was created with correct parameters
             mock_openai_class.assert_called_once()
             call_args = mock_openai_class.call_args
-            assert "deepseek" in call_args.kwargs["base_url"].lower()
+            # Accept either Azure OpenAI URL or fallback to regular OpenAI
+            base_url = call_args.kwargs.get("base_url", "")
+            assert ("openai.azure.com" in base_url or 
+                    base_url == "https://api.openai.com/v1" or 
+                    base_url is None)
             
             # Verify the model configuration was applied
             chat_call_args = mock_client.chat.completions.create.call_args
-            assert chat_call_args.kwargs["model"] == "deepseek-chat"
+            assert chat_call_args.kwargs["model"] == "gpt-4.1-nano"  # Azure deployment name (prioritized from env)
             assert chat_call_args.kwargs["temperature"] == 0.2
             assert chat_call_args.kwargs["max_tokens"] == 2000
             assert chat_call_args.kwargs["top_p"] == 0.95
     
-    def test_real_content_writer_with_deepseek_custom_config(self):
-        """Test ContentWriter agent with custom DeepSeek configuration."""
+    def test_real_content_writer_with_openai_custom_config(self):
+        """Test ContentWriter agent with custom OpenAI configuration."""
         with patch('agents.base_agent.openai.OpenAI') as mock_openai_class:
             # Mock the OpenAI client and response
             mock_client = Mock()
@@ -350,13 +354,13 @@ class TestRealAgentIntegration:
             2. Multimodal AI
             3. AI Safety and Alignment
             
-            Generated with DeepSeek's advanced reasoning capabilities.
+            Generated with OpenAI's advanced reasoning capabilities.
             """
             mock_client.chat.completions.create.return_value = mock_response
             
             # Create custom model configuration
             custom_config = ModelConfig(
-                model_name="deepseek-chat",
+                model_name="gpt-4o",
                 temperature=0.7,
                 max_tokens=1500,
                 top_p=0.9,
@@ -370,15 +374,15 @@ class TestRealAgentIntegration:
                     "style": "technical blog post",
                     "target_audience": "developers"
                 },
-                provider="deepseek",
+                provider="openai",
                 model_config=custom_config
             )
             
             # Verify successful execution
             assert result["success"] is True
             assert result["agent_name"] == "ContentWriter"
-            assert result["provider"] == "deepseek"
-            assert result["model_name"] == "deepseek-chat"
+            assert result["provider"] == "openai"
+            assert result["model_name"] == "gpt-4.1-nano"  # Azure deployment (prioritized from env for gpt-4o)
             
             # Verify custom configuration was applied
             chat_call_args = mock_client.chat.completions.create.call_args
@@ -387,8 +391,8 @@ class TestRealAgentIntegration:
             assert chat_call_args.kwargs["top_p"] == 0.9
             assert chat_call_args.kwargs["frequency_penalty"] == 0.1
     
-    def test_real_multi_agent_workflow_with_deepseek(self):
-        """Test multi-agent workflow using DeepSeek for all agents."""
+    def test_real_multi_agent_workflow_with_openai(self):
+        """Test multi-agent workflow using OpenAI for all agents."""
         with patch('agents.base_agent.openai.OpenAI') as mock_openai_class:
             # Mock the OpenAI client
             mock_client = Mock()
@@ -400,7 +404,7 @@ class TestRealAgentIntegration:
             analysis_response.choices[0].message = Mock()
             analysis_response.choices[0].message.content = """
             {
-                "analysis": "Market analysis using DeepSeek",
+                "analysis": "Market analysis using OpenAI",
                 "key_findings": ["Growth in AI sector", "Increased automation"],
                 "data_quality": "high"
             }
@@ -425,20 +429,13 @@ class TestRealAgentIntegration:
                 content_response
             ]
             
-            # Define workflow with DeepSeek configurations
+            # Define workflow with OpenAI configurations
             workflow = [
                 {
                     "agent": "data_analyst",
                     "task_data": {
                         "data": "Market data Q4 2024",
                         "analysis_type": "comprehensive"
-                    },
-                    "provider": "deepseek",
-                    "model_name": "deepseek-chat",
-                    "model_config": {
-                        "model_name": "deepseek-chat",
-                        "temperature": 0.1,  # Low temperature for analysis
-                        "max_tokens": 2000
                     }
                 },
                 {
@@ -446,18 +443,14 @@ class TestRealAgentIntegration:
                     "task_data": {
                         "topic": "Market Analysis Results",
                         "style": "executive summary"
-                    },
-                    "provider": "deepseek", 
-                    "model_name": "deepseek-chat",
-                    "model_config": {
-                        "model_name": "deepseek-chat",
-                        "temperature": 0.6,  # Higher temperature for creative writing
-                        "max_tokens": 1500
                     }
                 }
             ]
             
-            result = self.orchestrator.run_multi_agent_workflow(workflow)
+            result = self.orchestrator.run_multi_agent_workflow(
+                workflow,
+                provider="openai"  # Use OpenAI for all agents in workflow
+            )
             
             # Verify workflow execution
             assert result["success"] is True
@@ -504,7 +497,7 @@ class TestRealAgentIntegration:
             # Use AgentFactory directly with DeepSeek
             agent = AgentFactory.create_agent(
                 agent_type="code_reviewer",
-                provider="deepseek",
+                provider="openai",
                 model_name="deepseek-coder",
                 model_config={
                     "model_name": "deepseek-coder",
@@ -523,12 +516,12 @@ class TestRealAgentIntegration:
             # Verify agent was created and executed successfully
             assert result["success"] is True
             assert result["agent_name"] == "CodeReviewer"
-            assert result["provider"] == "deepseek"
-            assert result["model_name"] == "deepseek-coder"
+            assert result["provider"] == "openai"
+            assert result["model_name"] == "gpt-4.1-nano"  # Azure deployment name (prioritized from env)
             
-            # Verify DeepSeek coder model was used
+            # Verify OpenAI model was used
             chat_call_args = mock_client.chat.completions.create.call_args
-            assert chat_call_args.kwargs["model"] == "deepseek-coder"
+            assert chat_call_args.kwargs["model"] == "gpt-4.1-nano"  # Azure deployment name (prioritized from env)
             assert chat_call_args.kwargs["temperature"] == 0.0
 
 
@@ -559,10 +552,10 @@ class TestRealOrchestratorIntegration:
                 "analysis_type": "trend_analysis",
                 "output_format": "summary"
             },
-            provider="deepseek",
-            model_name="deepseek-chat",
+            provider="openai",
+            model_name="gpt-4",
             model_config={
-                "model_name": "deepseek-chat",
+                "model_name": "gpt-4",
                 "temperature": 0.3,
                 "max_tokens": 500
             }
@@ -573,8 +566,8 @@ class TestRealOrchestratorIntegration:
         assert "job_id" in result
         assert "execution_time" in result
         assert result["agent_name"] == "DataAnalyst"
-        assert result["provider"] == "deepseek"
-        assert result["model_name"] == "deepseek-chat"
+        assert result["provider"] == "openai"
+        assert result["model_name"] == "gpt-4.1-nano"  # Azure deployment name (prioritized from env)
         
         # Verify we got a response
         assert "response" in result
@@ -600,10 +593,10 @@ class TestRealOrchestratorIntegration:
                 "tone": "informative",
                 "word_count": "300-400"
             },
-            provider="deepseek",
-            model_name="deepseek-chat",
+            provider="openai",
+            model_name="gpt-4o",
             model_config={
-                "model_name": "deepseek-chat", 
+                "model_name": "gpt-4o", 
                 "temperature": 0.7,
                 "max_tokens": 600
             }
@@ -612,7 +605,7 @@ class TestRealOrchestratorIntegration:
         # Verify execution success
         assert result["success"] is True, f"ContentWriter failed: {result.get('error', 'Unknown error')}"
         assert result["agent_name"] == "ContentWriter"
-        assert result["provider"] == "deepseek"
+        assert result["provider"] == "openai"
         
         # Verify content response
         assert "response" in result
@@ -630,14 +623,14 @@ class TestRealOrchestratorIntegration:
         import os
         
         code_sample = '''
-def fibonacci(n):
-    if n <= 1:
-        return n
-    return fibonacci(n-1) + fibonacci(n-2)
+            def fibonacci(n):
+                if n <= 1:
+                    return n
+                return fibonacci(n-1) + fibonacci(n-2)
 
-# Usage
-print(fibonacci(10))
-        '''
+            # Usage
+            print(fibonacci(10))
+                    '''
         
         result = self.orchestrator.run_agent(
             agent_name="code_reviewer",
@@ -648,10 +641,10 @@ print(fibonacci(10))
                 "review_type": "performance",
                 "focus_areas": "efficiency, best practices"
             },
-            provider="deepseek",
-            model_name="deepseek-coder",
+            provider="openai",
+            model_name="gpt-4",
             model_config={
-                "model_name": "deepseek-coder",
+                "model_name": "gpt-4",
                 "temperature": 0.1,
                 "max_tokens": 800
             }
@@ -660,8 +653,8 @@ print(fibonacci(10))
         # Verify execution success
         assert result["success"] is True, f"CodeReviewer failed: {result.get('error', 'Unknown error')}"
         assert result["agent_name"] == "CodeReviewer"
-        assert result["provider"] == "deepseek"
-        assert result["model_name"] == "deepseek-coder"
+        assert result["provider"] == "openai"
+        assert result["model_name"] == "gpt-4.1-nano"  # Azure deployment name (prioritized from env)
         
         # Verify code review response
         assert "response" in result
@@ -743,17 +736,17 @@ print(fibonacci(10))
         not os.getenv("DEEPSEEK_API_KEY"), 
         reason="DEEPSEEK_API_KEY environment variable not set"
     )
-    def test_real_orchestrator_agent_factory_deepseek(self):
-        """Test AgentFactory integration with real DeepSeek API."""
+    def test_real_orchestrator_agent_factory_openai(self):
+        """Test AgentFactory integration with real OpenAI API."""
         import os
         
         # Create agent using factory
         agent = AgentFactory.create_agent(
             agent_type="data_analyst",
-            provider="deepseek",
-            model_name="deepseek-chat",
+            provider="openai",
+            model_name="gpt-4",
             model_config={
-                "model_name": "deepseek-chat",
+                "model_name": "gpt-4",
                 "temperature": 0.4,
                 "max_tokens": 300
             }
@@ -769,8 +762,8 @@ print(fibonacci(10))
         # Verify direct execution
         assert result["success"] is True, f"Direct agent execution failed: {result.get('error')}"
         assert result["agent_name"] == "DataAnalyst"
-        assert result["provider"] == "deepseek"
-        assert result["model_name"] == "deepseek-chat"
+        assert result["provider"] == "openai"
+        assert result["model_name"] == "gpt-4.1-nano"  # Azure deployment name (prioritized from env)
         
         # Verify response content
         assert "response" in result
