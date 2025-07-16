@@ -41,6 +41,7 @@ A modular and testable Python project that uses the **Autogen API**, supporting 
 
    See the [uv installation guide](https://github.com/astral-sh/uv#installation) for more options.
 
+
 3. **Create and activate a virtual environment (all OSes):**
    ```bash
    uv venv
@@ -50,7 +51,7 @@ A modular and testable Python project that uses the **Autogen API**, supporting 
    source .venv/bin/activate
    ```
 
-4. **Install dependencies:**
+4. **Install dependencies (using uv):**
    ```bash
    uv pip install -e .
    ```
@@ -82,37 +83,42 @@ A modular and testable Python project that uses the **Autogen API**, supporting 
    API_HOST=localhost
    API_PORT=8000
    ```
-
-2. **Ensure the logs directory exists:**
-   ```bash
-   # On all OSes
-   mkdir -p logs
-   # On Windows (cmd, fallback if mkdir -p fails):
-   if not exist logs mkdir logs
-   ```
+  2. **Create the logs directory:**
+    ```bash
+    # On macOS/Linux
+    mkdir -p logs
+    
+    # On Windows (PowerShell)
+    New-Item -ItemType Directory -Force -Path logs
+    
+    # On Windows (Command Prompt)
+    if not exist logs mkdir logs
+    ```
 
 ## �🚀 Quick Start
 
+
 ### Option 1: API Usage (Recommended for external integrations)
 
-1. **Start the server:**
+1. **Start the server (using uv):**
    ```bash
-   python main.py
+   uv run main.py
    ```
 
-2. **Test with a simple API call:**
+2. **Test with a simple API call (using uv):**
    ```bash
-   python curl_equivalent.py
+   uv run curl_equivalent.py
    ```
 
 3. **View API documentation:**
    Open `http://localhost:8000/docs` in your browser
 
+
 ### Option 2: Local Python Usage (Recommended for Python applications)
 
-1. **Run the demo:**
+1. **Run the demo (using uv):**
    ```bash
-   python examples/file_data_analyst_demo.py
+   uv run examples/file_data_analyst_demo.py
    ```
 
 2. **Use in your code:**
@@ -171,10 +177,11 @@ autogen_project/
 
 ## 🏃 Running the Application
 
-### Start the API Server
+
+### Start the API Server (using uv)
 
 ```bash
-python main.py
+uv run main.py
 ```
 
 The API will be available at `http://localhost:8000`
@@ -196,7 +203,7 @@ There are two main ways to use the agents in this project:
 #### 1. Start the API Server
 
 ```bash
-python main.py
+uv run main.py
 ```
 
 The API will be available at `http://localhost:8000` with interactive docs at `http://localhost:8000/docs`
@@ -244,7 +251,8 @@ curl -X POST "http://localhost:8000/run-agent" \
 
 **Python Equivalent of curl commands:**
 ```python
-# See curl_equivalent.py for a complete Python example
+# Save this as run_agent_example.py and run with:
+#   uv run run_agent_example.py
 import requests
 
 url = "http://localhost:8000/run-agent"
@@ -291,12 +299,124 @@ curl -X POST "http://localhost:8000/run-workflow" \
      }'
 ```
 
+#### 5. Advanced Multi-Agent Data Analysis Workflow
+
+**Complex Business Intelligence Pipeline:**
+```bash
+curl -X POST "http://localhost:8000/run-workflow" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "workflow": [
+         {
+           "agent": "file_data_analyst",
+           "task_data": {
+             "analysis_request": "Analyze Q4 financial performance and identify key trends",
+             "files": ["sales_data.csv", "employee_data.xlsx"],
+             "output_format": "structured_summary"
+           }
+         },
+         {
+           "agent": "data_analyst", 
+           "task_data": {
+             "data": "{{previous_result}}",
+             "context": "Create predictive insights for Q1 planning",
+             "analysis_type": "forecasting"
+           }
+         },
+         {
+           "agent": "content_writer",
+           "task_data": {
+             "topic": "Q4 Performance & Q1 Forecast Report",
+             "audience": "C-suite executives",
+             "content_type": "executive briefing",
+             "data_source": "{{previous_result}}",
+             "include_charts": true
+           }
+         }
+       ],
+       "provider": "openai",
+       "model_name": "gpt-4",
+       "llm_config": {
+         "temperature": 0.3,
+         "max_tokens": 2000
+       }
+     }'
+```
+
+**Python Equivalent of Advanced Workflow:**
+```python
+# Save this as advanced_workflow_example.py and run with:
+#   uv run advanced_workflow_example.py
+import requests
+import json
+
+def run_advanced_workflow():
+    url = "http://localhost:8000/run-workflow"
+    headers = {"Content-Type": "application/json"}
+    
+    workflow_data = {
+        "workflow": [
+            {
+                "agent": "file_data_analyst",
+                "task_data": {
+                    "analysis_request": "Analyze Q4 financial performance and identify key trends",
+                    "files": ["sales_data.csv", "employee_data.xlsx"],
+                    "output_format": "structured_summary"
+                }
+            },
+            {
+                "agent": "data_analyst", 
+                "task_data": {
+                    "data": "{{previous_result}}",
+                    "context": "Create predictive insights for Q1 planning",
+                    "analysis_type": "forecasting"
+                }
+            },
+            {
+                "agent": "content_writer",
+                "task_data": {
+                    "topic": "Q4 Performance & Q1 Forecast Report",
+                    "audience": "C-suite executives", 
+                    "content_type": "executive briefing",
+                    "data_source": "{{previous_result}}",
+                    "include_charts": True
+                }
+            }
+        ],
+        "provider": "openai",
+        "model_name": "gpt-4",
+        "llm_config": {
+            "temperature": 0.3,
+            "max_tokens": 2000
+        }
+    }
+    
+    print("🚀 Starting advanced workflow...")
+    response = requests.post(url, headers=headers, json=workflow_data)
+    
+    if response.status_code == 200:
+        result = response.json()
+        print("✅ Workflow completed successfully!")
+        print(f"📊 Total execution time: {result.get('total_execution_time', 'N/A')} seconds")
+        print("\n📋 Final Report:")
+        print("=" * 60)
+        print(result.get('final_result', 'No result available'))
+    else:
+        print(f"❌ Workflow failed with status: {response.status_code}")
+        print(f"Error: {response.text}")
+
+if __name__ == "__main__":
+    run_advanced_workflow()
+```
+
 ### 🐍 Local Python Code Usage
 
 #### 1. Direct Agent Usage
 
 ```python
-from agents import FileDataAnalyst, DataAnalyst, ContentWriter
+# Save this as direct_agent_example.py and run with:
+#   uv run direct_agent_example.py
+from agents import FileDataAnalyst
 
 # Create and configure an agent
 agent = FileDataAnalyst(provider="openai")
@@ -322,6 +442,8 @@ except Exception as e:
 #### 2. Using Agent Factory
 
 ```python
+# Save this as agent_factory_example.py and run with:
+#   uv run agent_factory_example.py
 from agents import AgentFactory
 
 # List available agent types
@@ -337,11 +459,15 @@ agent = AgentFactory.create_agent(
 # Use convenience methods for specific analysis types
 sales_analysis = agent.analyze_sales_data("sales_data.csv")
 employee_analysis = agent.analyze_employee_data("employee_data.xlsx")
+print("Sales analysis:", sales_analysis)
+print("Employee analysis:", employee_analysis)
 ```
 
 #### 3. Using the Orchestrator Locally
 
 ```python
+# Save this as orchestrator_example.py and run with:
+#   uv run orchestrator_example.py
 from api.orchestrator import TaskOrchestrator
 
 # Create orchestrator
@@ -366,6 +492,8 @@ print("Task result:", task_result)
 #### 4. Async Usage for Better Performance
 
 ```python
+# Save this as async_example.py and run with:
+#   uv run async_example.py
 import asyncio
 from api.orchestrator import TaskOrchestrator
 
@@ -391,11 +519,14 @@ async def run_multiple_agents():
 
 # Run async tasks
 results = asyncio.run(run_multiple_agents())
+print("Results:", results)
 ```
 
 #### 5. Custom Agent Development
 
 ```python
+# Save this as custom_agent_example.py and run with:
+#   uv run custom_agent_example.py
 from agents.base_agent import BaseAgent
 from typing import Dict, Any
 
@@ -429,29 +560,252 @@ result = orchestrator.execute_agent_task(
         "context": "Business process optimization"
     }
 )
+print("Custom agent result:", result)
+```
+
+#### 6. Advanced Workflow - Programmatic Implementation
+
+```python
+# Save this as programmatic_workflow_example.py and run with:
+#   uv run programmatic_workflow_example.py
+import asyncio
+from typing import Dict, Any
+from agents import FileDataAnalyst, DataAnalyst, ContentWriter
+from core.logger import agent_logger
+
+class AdvancedWorkflowOrchestrator:
+    """
+    Demonstrates advanced workflow implementation by directly managing 
+    agent initialization and response handling.
+    """
+    
+    def __init__(self):
+        self.workflow_results = []
+        self.execution_log = []
+    
+    async def execute_advanced_workflow(self) -> Dict[str, Any]:
+        """
+        Execute a complex 3-stage business intelligence workflow:
+        1. File Data Analysis → 2. Predictive Analytics → 3. Executive Report
+        """
+        print("🚀 Starting Advanced Programmatic Workflow...")
+        print("=" * 60)
+        
+        try:
+            # Stage 1: File Data Analysis
+            stage1_result = await self._stage1_file_analysis()
+            
+            # Stage 2: Predictive Analytics
+            stage2_result = await self._stage2_predictive_analysis(stage1_result)
+            
+            # Stage 3: Executive Report Generation
+            stage3_result = await self._stage3_executive_report(stage2_result)
+            
+            # Compile final results
+            final_report = self._compile_final_report()
+            
+            print("\n✅ Workflow completed successfully!")
+            return final_report
+            
+        except Exception as e:
+            agent_logger.error(f"Workflow failed: {str(e)}")
+            print(f"❌ Workflow failed: {str(e)}")
+            return {"error": str(e), "completed_stages": len(self.workflow_results)}
+    
+    async def _stage1_file_analysis(self) -> str:
+        """Stage 1: Analyze financial data from multiple files"""
+        print("\n📊 Stage 1: File Data Analysis")
+        print("-" * 30)
+        
+        # Initialize File Data Analyst
+        analyst = FileDataAnalyst(provider="openai")
+        
+        task_data = {
+            "analysis_request": "Analyze Q4 financial performance, identify key trends, and provide structured summary",
+            "files": ["sales_data.csv", "employee_data.xlsx"],
+            "output_format": "structured_json",
+            "focus_areas": ["revenue_trends", "cost_analysis", "performance_metrics"]
+        }
+        
+        print(f"🔍 Analyzing files: {task_data['files']}")
+        
+        # Execute analysis
+        result = await asyncio.to_thread(analyst.execute, task_data)
+        
+        # Log and store result
+        self.workflow_results.append({
+            "stage": 1,
+            "agent": "FileDataAnalyst",
+            "task": "Q4 Financial Analysis",
+            "result": result,
+            "status": "completed"
+        })
+        
+        print(f"✅ Stage 1 completed. Analysis length: {len(result)} characters")
+        return result
+    
+    async def _stage2_predictive_analysis(self, previous_result: str) -> str:
+        """Stage 2: Generate predictive insights based on Stage 1 results"""
+        print("\n📈 Stage 2: Predictive Analytics")
+        print("-" * 30)
+        
+        # Initialize Data Analyst for forecasting
+        predictor = DataAnalyst(provider="deepseek")
+        
+        task_data = {
+            "data": previous_result,
+            "context": "Generate Q1 2025 forecasts and strategic recommendations",
+            "analysis_type": "predictive_forecasting",
+            "output_requirements": [
+                "revenue_forecast",
+                "risk_assessment", 
+                "growth_opportunities",
+                "resource_planning"
+            ]
+        }
+        
+        print("🔮 Generating predictive insights...")
+        
+        # Execute prediction
+        result = await asyncio.to_thread(predictor.execute, task_data)
+        
+        # Log and store result
+        self.workflow_results.append({
+            "stage": 2,
+            "agent": "DataAnalyst",
+            "task": "Q1 Forecasting",
+            "result": result,
+            "status": "completed"
+        })
+        
+        print(f"✅ Stage 2 completed. Forecast length: {len(result)} characters")
+        return result
+    
+    async def _stage3_executive_report(self, forecast_data: str) -> str:
+        """Stage 3: Generate executive-ready report"""
+        print("\n📋 Stage 3: Executive Report Generation")
+        print("-" * 30)
+        
+        # Initialize Content Writer for executive communication
+        writer = ContentWriter(provider="openai")
+        
+        # Combine previous results for comprehensive context
+        combined_data = {
+            "financial_analysis": self.workflow_results[0]["result"],
+            "predictive_insights": forecast_data
+        }
+        
+        task_data = {
+            "topic": "Q4 2024 Performance Review & Q1 2025 Strategic Outlook",
+            "audience": "C-Suite Executives and Board Members",
+            "content_type": "executive_briefing",
+            "data_sources": combined_data,
+            "requirements": [
+                "executive_summary",
+                "key_findings",
+                "strategic_recommendations", 
+                "action_items",
+                "risk_mitigation"
+            ],
+            "format": "professional_presentation"
+        }
+        
+        print("📝 Generating executive briefing...")
+        
+        # Execute report generation
+        result = await asyncio.to_thread(writer.execute, task_data)
+        
+        # Log and store result
+        self.workflow_results.append({
+            "stage": 3,
+            "agent": "ContentWriter",
+            "task": "Executive Report",
+            "result": result,
+            "status": "completed"
+        })
+        
+        print(f"✅ Stage 3 completed. Report length: {len(result)} characters")
+        return result
+    
+    def _compile_final_report(self) -> Dict[str, Any]:
+        """Compile comprehensive workflow results"""
+        return {
+            "workflow_type": "Advanced Business Intelligence Pipeline",
+            "total_stages": len(self.workflow_results),
+            "execution_summary": {
+                "stage_1": "Financial data analysis completed",
+                "stage_2": "Predictive forecasting completed", 
+                "stage_3": "Executive report generated"
+            },
+            "final_deliverable": self.workflow_results[-1]["result"],
+            "supporting_analysis": {
+                "financial_insights": self.workflow_results[0]["result"][:500] + "...",
+                "forecast_summary": self.workflow_results[1]["result"][:500] + "..."
+            },
+            "workflow_metadata": {
+                "agents_used": ["FileDataAnalyst", "DataAnalyst", "ContentWriter"],
+                "providers": ["openai", "deepseek", "openai"],
+                "total_processing_stages": 3
+            }
+        }
+
+async def main():
+    """Main execution function"""
+    orchestrator = AdvancedWorkflowOrchestrator()
+    
+    # Execute the advanced workflow
+    final_report = await orchestrator.execute_advanced_workflow()
+    
+    # Display results
+    print("\n" + "=" * 60)
+    print("📋 FINAL WORKFLOW REPORT")
+    print("=" * 60)
+    
+    if "error" not in final_report:
+        print(f"🎯 Workflow Type: {final_report['workflow_type']}")
+        print(f"📊 Stages Completed: {final_report['total_stages']}/3")
+        print(f"🤖 Agents Used: {', '.join(final_report['workflow_metadata']['agents_used'])}")
+        
+        print("\n📈 Executive Summary:")
+        print("-" * 30)
+        print(final_report['final_deliverable'][:800] + "...")
+        
+        print("\n🔍 Supporting Analysis Available:")
+        print("- Financial Analysis:", len(final_report['supporting_analysis']['financial_insights']))
+        print("- Forecast Data:", len(final_report['supporting_analysis']['forecast_summary']))
+        
+    else:
+        print(f"❌ Workflow Error: {final_report['error']}")
+        print(f"📊 Completed Stages: {final_report['completed_stages']}/3")
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 ### 📂 Example Files and Demos
 
 The project includes several example files to help you get started:
 
+
 #### `curl_equivalent.py` - API Usage Example
-A complete Python script that demonstrates how to call the API endpoints:
+A complete Python script that demonstrates how to call the API endpoints. Run it directly after setup:
 ```bash
-python curl_equivalent.py
+uv run curl_equivalent.py
 ```
 
 #### `examples/file_data_analyst_demo.py` - Local Usage Example  
-Comprehensive demo showing local agent usage:
+Comprehensive demo showing local agent usage. Run it independently:
 ```bash
-python examples/file_data_analyst_demo.py
+uv run examples/file_data_analyst_demo.py
 ```
 
 #### `data_pipeline_example.py` - Pipeline Demo
-Shows how to chain multiple agents together for complex workflows:
+Shows how to chain multiple agents together for complex workflows. Run it independently:
 ```bash
-python data_pipeline_example.py
+uv run data_pipeline_example.py
 ```
+
+> **Note:** All scripts above assume you have completed the setup and activated your uv environment. Always use `uv run ...` to ensure the correct environment and dependencies are used.
 
 These examples work with the sample data files in the `data/` directory:
 - `employee_data.xlsx` - Sample employee information
@@ -495,6 +849,8 @@ fetch('http://localhost:8000/run-agent', {
 
 **Python Data Science Workflow:**
 ```python
+# Save this as data_science_example.py and run with:
+#   uv run data_science_example.py
 # Direct integration in Jupyter notebook or Python script
 from agents import FileDataAnalyst
 import pandas as pd
@@ -510,7 +866,8 @@ insights = agent.execute({
 })
 
 # Continue with your analysis
-print(insights)
+print("Data shape:", df.shape)
+print("Insights:", insights)
 ```
 
 ## �🧪 Testing
@@ -518,17 +875,17 @@ print(insights)
 Run the test suite:
 
 ```bash
-# Run all tests
-pytest
+# Run all tests (using uv)
+uv pip run pytest
 
 # Run with coverage
-pytest --cov=.
+uv pip run pytest --cov=.
 
 # Run specific test file
-pytest tests/test_config.py
+uv pip run pytest tests/test_config.py
 
 # Run with verbose output
-pytest -v
+uv pip run pytest -v
 ```
 
 ## 🔧 Adding New Agents
