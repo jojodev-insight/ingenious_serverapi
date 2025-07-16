@@ -1,0 +1,5 @@
+# AutoGen Workflow Agent Template (Not Used)
+# This template is not used by AutoGen workflow agents as they handle workflow coordination internally.
+# This file exists only to satisfy the BaseAgent constructor requirement.
+
+You are an AutoGen-powered workflow agent capable of coordinating multi-agent workflows.

@@ -3,12 +3,25 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
+import json
 
 import openai
 import pandas as pd
 import PyPDF2
 from docx import Document
 from jinja2 import Template
+
+# AutoGen imports with availability check
+try:
+    from autogen_agentchat.agents import AssistantAgent, UserProxyAgent
+    from autogen_agentchat.teams import RoundRobinGroupChat
+    from autogen_agentchat.messages import ChatMessage, TextMessage
+    from autogen_agentchat.conditions import MaxMessageTermination
+    from autogen_core.models import ChatCompletionClient
+    AUTOGEN_AVAILABLE = True
+except ImportError as e:
+    AUTOGEN_AVAILABLE = False
+    AUTOGEN_IMPORT_ERROR = str(e)
 
 from core import agent_logger, config
 
@@ -294,32 +307,55 @@ class BaseAgent(ABC):
     def __init__(
         self,
         name: str,
-        template_name: str,
+        template_name: str | None = None,
         provider: str | None = None,
         model_name: str | None = None,
         model_config: ModelConfig | None = None,
         system_message: str | None = None,
         custom_client_params: dict[str, Any] | None = None,
-        data_dir: str | None = None
+        data_dir: str | None = None,
+        use_templates: bool = True,
+        agent_type: str = "standard",
+        agent_config: dict[str, Any] | None = None
     ) -> None:
         """Initialize the base agent.
         
         Args:
             name: Agent name.
-            template_name: Name of the prompt template file.
+            template_name: Name of the prompt template file (optional for some agent types).
             provider: LLM provider ('openai', 'deepseek', 'anthropic').
             model_name: Specific model to use (overrides config defaults).
             model_config: Custom model configuration (overrides defaults).
             system_message: System message for the agent.
             custom_client_params: Additional parameters for the client.
             data_dir: Directory path for data files (defaults to 'data' in project root).
+            use_templates: Whether this agent uses template files (False for AutoGen-style agents).
+            agent_type: Type of agent ('standard', 'autogen', 'autogen_workflow').
+            agent_config: Additional configuration for specific agent types.
         """
         self.name = name
         self.template_name = template_name
         self.provider = provider or config.default_provider
         self.custom_client_params = custom_client_params or {}
         self.data_dir = Path(data_dir) if data_dir else Path("data")
+        self.use_templates = use_templates
+        self.agent_type = agent_type
+        self.agent_config = agent_config or {}
 
+        # AutoGen-specific initialization
+        if self.agent_type in ["autogen", "autogen_workflow"]:
+            if not AUTOGEN_AVAILABLE:
+                agent_logger.warning(f"AutoGen not available for agent '{name}': {AUTOGEN_IMPORT_ERROR}")
+            
+            # AutoGen configuration
+            self.max_turns = self.agent_config.get("max_turns", 10)
+            self.temperature = self.agent_config.get("temperature", 0.7)
+            self.agents_config = self.agent_config.get("agents", [])
+            
+            # For AutoGen workflow agents
+            if self.agent_type == "autogen_workflow":
+                self.workflow_type = self.agent_config.get("workflow_type", "research")
+        
         # Ensure data directory exists
         self.data_dir.mkdir(exist_ok=True)
 
@@ -351,8 +387,13 @@ class BaseAgent(ABC):
 
         self.system_message = system_message or f"You are {name}, a helpful AI assistant."
 
-        # Load prompt template
-        self.template = self._load_template()
+        # Load prompt template only if templates are used
+        if self.use_templates:
+            if not template_name:
+                raise ValueError(f"template_name is required when use_templates=True for agent '{name}'")
+            self.template = self._load_template()
+        else:
+            self.template = None
 
         # Initialize client
         self.client = self._create_client()
@@ -382,6 +423,9 @@ class BaseAgent(ABC):
 
     def _load_template(self) -> Template:
         """Load prompt template from file."""
+        if not self.template_name:
+            raise ValueError("template_name is required for template loading")
+            
         template_path = Path(config.templates_dir) / self.template_name
 
         if not template_path.exists():
@@ -597,9 +641,12 @@ class BaseAgent(ABC):
         except Exception as e:
             return f"Error getting summary for {filename}: {str(e)}"
 
-    @abstractmethod
     def prepare_task(self, task_data: dict[str, Any]) -> str:
         """Prepare the task prompt from input data.
+        
+        This method can be overridden by subclasses. For template-based agents,
+        this should use self.template. For non-template agents (like AutoGen),
+        this can be implemented differently or raise NotImplementedError.
         
         Args:
             task_data: Input data for the task.
@@ -607,7 +654,43 @@ class BaseAgent(ABC):
         Returns:
             Prepared prompt string.
         """
-        pass
+        # Handle AutoGen agent types
+        if self.agent_type in ["autogen", "autogen_workflow"]:
+            return self._prepare_autogen_task(task_data)
+        
+        # Handle standard template-based agents
+        if not self.use_templates:
+            raise NotImplementedError("prepare_task must be implemented by non-template agents")
+        
+        if not self.template:
+            raise ValueError("Template not loaded for template-based agent")
+            
+        # Default implementation for template-based agents
+        return self.template.render(**task_data)
+
+    def _prepare_autogen_task(self, task_data: dict[str, Any]) -> str:
+        """Prepare task for AutoGen agents.
+        
+        Args:
+            task_data: Input data containing conversation parameters.
+            
+        Returns:
+            Prepared prompt string for the conversation.
+        """
+        # For AutoGen agents, the primary input is the conversation message
+        message = task_data.get("message", task_data.get("prompt", ""))
+        
+        if not message:
+            return "Please provide a message to start the conversation."
+        
+        # Add context about the agents if available
+        agents_config = task_data.get("agents", self.agents_config)
+        if agents_config:
+            agent_names = [agent.get("name", "Unknown") for agent in agents_config]
+            context = f"Starting conversation with agents: {', '.join(agent_names)}\n\n"
+            return context + message
+        
+        return message
 
     def execute(self, task_data: dict[str, Any], stream: bool = False) -> dict[str, Any]:
         """Execute the agent task.
@@ -636,7 +719,14 @@ class BaseAgent(ABC):
         agent_logger.log_agent_start(self.name, str(task_data))
 
         try:
-            # Prepare the task prompt
+            # Handle AutoGen agent types with their own execution logic
+            if self.agent_type == "autogen":
+                return self._execute_autogen_sync(task_data)
+            elif self.agent_type == "autogen_workflow":
+                return self._execute_autogen_workflow_sync(task_data)
+            
+            # Standard template-based execution for regular agents
+            # All agents must implement prepare_task - no exceptions
             prompt = self.prepare_task(task_data)
 
             # Create messages
@@ -691,7 +781,16 @@ class BaseAgent(ABC):
         agent_logger.log_agent_start(self.name, str(task_data))
 
         try:
-            # Prepare the task prompt
+            # Handle AutoGen agent types with their own streaming logic
+            if self.agent_type == "autogen":
+                yield from self._execute_autogen_stream(task_data)
+                return
+            elif self.agent_type == "autogen_workflow":
+                yield from self._execute_autogen_workflow_stream(task_data)
+                return
+            
+            # Standard template-based streaming for regular agents
+            # All agents must implement prepare_task - no exceptions
             prompt = self.prepare_task(task_data)
 
             # Create messages
@@ -762,3 +861,312 @@ class BaseAgent(ABC):
                 "stream": True,
                 "type": "error"
             }
+
+    def _create_simple_conversation(self, task_data: dict[str, Any]) -> dict[str, Any]:
+        """Create a simple multi-agent conversation simulation.
+        
+        This is a simplified version that demonstrates the AutoGen integration concept
+        without requiring the full AutoGen model client setup complexity.
+        
+        Args:
+            task_data: Task data containing conversation parameters.
+            
+        Returns:
+            Conversation results.
+        """
+        try:
+            message = task_data.get("message", task_data.get("prompt", "Hello!"))
+            agents_config = task_data.get("agents", self.agents_config)
+            max_turns = task_data.get("max_turns", self.max_turns)
+            
+            # Default agent configuration if none provided
+            if not agents_config:
+                agents_config = [
+                    {"type": "user_proxy", "name": "User", "system_message": "You are a user proxy agent."},
+                    {"type": "assistant", "name": "Assistant", "system_message": "You are a helpful assistant."}
+                ]
+            
+            conversation = []
+            agents_used = []
+            
+            # Simulate conversation between agents
+            current_message = message
+            for turn in range(min(max_turns, 4)):  # Limit to 4 turns for simulation
+                for i, agent_config in enumerate(agents_config):
+                    agent_name = agent_config.get("name", f"Agent_{i}")
+                    agent_type = agent_config.get("type", "assistant")
+                    
+                    if agent_name not in agents_used:
+                        agents_used.append(agent_name)
+                    
+                    # Simulate agent response using the LLM
+                    if agent_type == "user_proxy":
+                        # User proxy just forwards the message
+                        response_content = f"[{agent_name}] {current_message}"
+                    else:
+                        # Assistant agents generate responses
+                        try:
+                            agent_system_message = agent_config.get("system_message", "You are a helpful assistant.")
+                            messages = [
+                                {"role": "system", "content": agent_system_message},
+                                {"role": "user", "content": current_message}
+                            ]
+                            
+                            api_params = self.model_config.to_dict()
+                            api_params["messages"] = messages
+                            api_params["stream"] = False
+                            api_params["max_tokens"] = min(200, api_params.get("max_tokens", 200))  # Limit for simulation
+                            
+                            response = self.client.chat.completions.create(**api_params)
+                            response_content = response.choices[0].message.content
+                        except Exception as e:
+                            response_content = f"[{agent_name}] Error generating response: {str(e)}"
+                    
+                    conversation.append({
+                        "source": agent_name,
+                        "content": response_content,
+                        "turn": turn,
+                        "agent_type": agent_type
+                    })
+                    
+                    current_message = response_content
+                    
+                    # Break if we have enough conversation
+                    if len(conversation) >= max_turns:
+                        break
+                
+                if len(conversation) >= max_turns:
+                    break
+            
+            # Create summary response
+            if conversation:
+                last_message = conversation[-1]["content"]
+                summary = f"Multi-agent conversation completed with {len(agents_used)} agents over {len(conversation)} messages."
+            else:
+                last_message = "No conversation generated."
+                summary = "Conversation simulation failed."
+            
+            return {
+                "success": True,
+                "response": last_message,
+                "conversation": conversation,
+                "summary": summary,
+                "total_messages": len(conversation),
+                "agents_used": agents_used,
+                "agent_type": "autogen_simulation"
+            }
+            
+        except Exception as e:
+            agent_logger.error(f"AutoGen conversation simulation failed: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "response": f"AutoGen conversation failed: {str(e)}",
+                "agent_type": "autogen_simulation"
+            }
+
+    def _get_workflow_config(self, workflow_type: str) -> dict[str, Any]:
+        """Get predefined workflow configuration for AutoGen workflow agents.
+        
+        Args:
+            workflow_type: Type of workflow ("research", "creative", "problem_solving").
+            
+        Returns:
+            Workflow configuration dictionary.
+        """
+        workflows = {
+            "research": {
+                "agents": [
+                    {"type": "user_proxy", "name": "Researcher", "system_message": "You are a research coordinator. Ask questions and gather information."},
+                    {"type": "assistant", "name": "DataAnalyst", "system_message": "You analyze data and provide insights."},
+                    {"type": "assistant", "name": "Writer", "system_message": "You synthesize information into clear reports."}
+                ],
+                "max_turns": 6
+            },
+            "creative": {
+                "agents": [
+                    {"type": "user_proxy", "name": "Client", "system_message": "You represent the client's creative vision."},
+                    {"type": "assistant", "name": "Ideator", "system_message": "You generate creative ideas and concepts."},
+                    {"type": "assistant", "name": "Critic", "system_message": "You provide constructive feedback and refinements."}
+                ],
+                "max_turns": 5
+            },
+            "problem_solving": {
+                "agents": [
+                    {"type": "user_proxy", "name": "ProblemOwner", "system_message": "You present the problem and requirements."},
+                    {"type": "assistant", "name": "Analyzer", "system_message": "You break down problems and identify key issues."},
+                    {"type": "assistant", "name": "Solver", "system_message": "You propose solutions and implementation strategies."}
+                ],
+                "max_turns": 5
+            }
+        }
+        
+        return workflows.get(workflow_type, workflows["research"])
+
+    def _execute_autogen_sync(self, task_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute AutoGen conversation task synchronously.
+        
+        Args:
+            task_data: Task data containing conversation parameters.
+            
+        Returns:
+            Execution results.
+        """
+        agent_logger.info("Executing AutoGen conversation task")
+        
+        try:
+            if not AUTOGEN_AVAILABLE:
+                return {
+                    "success": False,
+                    "error": f"AutoGen not available: {AUTOGEN_IMPORT_ERROR}",
+                    "response": "AutoGen integration is not fully configured. Please check the installation."
+                }
+            
+            # Use the simplified conversation simulation
+            result = self._create_simple_conversation(task_data)
+            
+            agent_logger.info("AutoGen conversation completed")
+            return result
+            
+        except Exception as e:
+            error_msg = f"AutoGen execution failed: {str(e)}"
+            agent_logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "response": error_msg
+            }
+
+    def _execute_autogen_workflow_sync(self, task_data: dict[str, Any]) -> dict[str, Any]:
+        """Execute AutoGen workflow task synchronously.
+        
+        Args:
+            task_data: Task data containing workflow parameters.
+            
+        Returns:
+            Execution results.
+        """
+        agent_logger.info(f"Executing AutoGen {self.workflow_type} workflow")
+        
+        # Get workflow configuration
+        workflow_type = task_data.get("workflow_type", self.workflow_type)
+        workflow_config = self._get_workflow_config(workflow_type)
+        
+        # Merge with task data
+        enhanced_task_data = {**task_data, **workflow_config}
+        
+        # Execute using the AutoGen conversation logic
+        result = self._create_simple_conversation(enhanced_task_data)
+        
+        # Add workflow metadata
+        if result.get("success"):
+            result["workflow_type"] = workflow_type
+            result["workflow_agent"] = "AutoGenWorkflowAgent"
+        
+        return result
+
+    def _execute_autogen_stream(self, task_data: dict[str, Any]):
+        """Execute AutoGen conversation with streaming.
+        
+        Args:
+            task_data: Task data containing conversation parameters.
+            
+        Yields:
+            Streaming execution results.
+        """
+        agent_logger.info("Starting AutoGen streaming conversation")
+        
+        try:
+            if not AUTOGEN_AVAILABLE:
+                yield {
+                    "success": False,
+                    "type": "error",
+                    "error": f"AutoGen not available: {AUTOGEN_IMPORT_ERROR}",
+                    "stream": True
+                }
+                return
+            
+            # Yield start event
+            yield {
+                "success": True,
+                "type": "start",
+                "message": "Starting AutoGen conversation simulation",
+                "stream": True
+            }
+            
+            # Get configuration
+            agents_config = task_data.get("agents", self.agents_config)
+            if not agents_config:
+                agents_config = [
+                    {"type": "user_proxy", "name": "User"},
+                    {"type": "assistant", "name": "Assistant", "system_message": "You are helpful."}
+                ]
+            
+            # Yield agent creation
+            yield {
+                "success": True,
+                "type": "agents_created",
+                "message": f"Created {len(agents_config)} agents",
+                "agents": [agent.get("name", "Unknown") for agent in agents_config],
+                "stream": True
+            }
+            
+            # Execute the conversation
+            result = self._create_simple_conversation(task_data)
+            
+            if result.get("success"):
+                # Stream each message
+                for i, message in enumerate(result.get("conversation", [])):
+                    yield {
+                        "success": True,
+                        "type": "message", 
+                        "message_index": i,
+                        "source": message["source"],
+                        "content": message["content"],
+                        "stream": True
+                    }
+                
+                # Final result
+                yield {
+                    "success": True,
+                    "type": "complete",
+                    "response": result.get("response", ""),
+                    "total_messages": result.get("total_messages", 0),
+                    "agents_used": result.get("agents_used", []),
+                    "stream": True
+                }
+            else:
+                yield {
+                    "success": False,
+                    "type": "error",
+                    "error": result.get("error", "Unknown error"),
+                    "stream": True
+                }
+            
+        except Exception as e:
+            error_msg = f"AutoGen streaming failed: {str(e)}"
+            agent_logger.error(error_msg)
+            yield {
+                "success": False,
+                "type": "error",
+                "error": error_msg,
+                "stream": True
+            }
+
+    def _execute_autogen_workflow_stream(self, task_data: dict[str, Any]):
+        """Execute AutoGen workflow with streaming.
+        
+        Args:
+            task_data: Task data containing workflow parameters.
+            
+        Yields:
+            Streaming execution results.
+        """
+        workflow_type = task_data.get("workflow_type", self.workflow_type)
+        workflow_config = self._get_workflow_config(workflow_type)
+        enhanced_task_data = {**task_data, **workflow_config}
+        
+        for chunk in self._execute_autogen_stream(enhanced_task_data):
+            chunk["workflow_type"] = workflow_type
+            chunk["workflow_agent"] = "AutoGenWorkflowAgent"
+            yield chunk

@@ -21,7 +21,9 @@ class AgentFactory:
         "content_writer": ContentWriterAgent,
         "code_reviewer": CodeReviewerAgent,
         "file_data_analyst": FileDataAnalyst,
-        "custom": CustomAgent
+        "custom": CustomAgent,
+        "autogen": BaseAgent,
+        "autogen_workflow": BaseAgent
     }
 
     @classmethod
@@ -63,13 +65,37 @@ class AgentFactory:
             else:
                 model_config = ModelConfig(**model_config)
 
-        # Prepare initialization parameters
-        init_params = {
-            "provider": provider,
-            "model_name": model_name,
-            "model_config": model_config,
-            **agent_config
-        }
+        # Special handling for AutoGen agent types
+        if agent_type == "autogen":
+            init_params = {
+                "name": "AutoGenAgent",
+                "template_name": "autogen_dummy.txt",
+                "provider": provider,
+                "model_name": model_name,
+                "model_config": model_config,
+                "agent_type": "autogen",
+                "agent_config": agent_config,
+                "use_templates": False
+            }
+        elif agent_type == "autogen_workflow":
+            init_params = {
+                "name": "AutoGenWorkflowAgent", 
+                "template_name": "autogen_dummy.txt",
+                "provider": provider,
+                "model_name": model_name,
+                "model_config": model_config,
+                "agent_type": "autogen_workflow",
+                "agent_config": agent_config,
+                "use_templates": False
+            }
+        else:
+            # Standard agent initialization
+            init_params = {
+                "provider": provider,
+                "model_name": model_name,
+                "model_config": model_config,
+                **agent_config
+            }
 
         return agent_class(**init_params)
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Advanced streaming examples with orchestrator and multiple agents.
+Advanced AutoGen streaming examples with orchestrator and multiple agents.
 
-This script demonstrates advanced streaming capabilities including:
-- Orchestrator-level streaming
-- Multi-agent streaming workflows
-- Real-time progress monitoring
+This script demonstrates advanced AutoGen streaming capabilities including:
+- Multi-agent AutoGen conversations
+- Research pipelines with AutoGen
+- Code analysis with collaborative AutoGen agents
+- Interactive brainstorming sessions
 """
 
 import time
@@ -234,6 +235,193 @@ def streaming_performance_monitor():
     print("\n" + "="*60 + "\n")
 
 
+async def advanced_autogen_research_pipeline():
+    """Advanced research pipeline with AutoGen agents."""
+    print("🔬 Advanced AutoGen Research Pipeline")
+    print("=" * 50)
+    
+    orchestrator = TaskOrchestrator()
+    
+    # Multi-step research workflow
+    research_topic = "The impact of quantum computing on cybersecurity"
+    
+    task_data = {
+        "message": f"Conduct comprehensive research on: {research_topic}. Include current state, future implications, and recommendations.",
+        "agents": [
+            {
+                "type": "user_proxy",
+                "name": "ResearchDirector",
+                "description": "Research director coordinating the investigation"
+            },
+            {
+                "type": "assistant",
+                "name": "QuantumExpert",
+                "description": "Quantum computing specialist",
+                "system_message": "You are a quantum computing expert. Provide detailed technical insights about quantum computing capabilities, current limitations, and future potential in cybersecurity applications."
+            },
+            {
+                "type": "assistant",
+                "name": "CyberSecurityAnalyst",
+                "description": "Cybersecurity specialist",
+                "system_message": "You are a cybersecurity expert. Analyze how quantum computing affects current encryption methods, security protocols, and defensive strategies."
+            }
+        ],
+        "max_turns": 10
+    }
+    
+    print(f"📝 Research Topic: {research_topic}")
+    print("🤖 Starting multi-agent research conversation...\n")
+    
+    async for chunk in orchestrator.run_agent_stream("autogen", task_data):
+        if chunk["success"]:
+            chunk_type = chunk.get("type", "unknown")
+            
+            if chunk_type == "start":
+                print("🚀 Research initiated")
+                
+            elif chunk_type == "agents_created":
+                agents = chunk.get("agents", [])
+                print(f"👥 Research team: {', '.join(agents)}")
+                
+            elif chunk_type == "message":
+                source = chunk.get("source", "Unknown")
+                content = chunk.get("content", "")
+                preview = content[:100] + "..." if len(content) > 100 else content
+                print(f"🗣️  {source}: {preview}")
+                
+            elif chunk_type == "complete":
+                print("✅ Research completed!")
+                final_response = chunk.get("response", "")
+                print(f"📄 Final report length: {len(final_response)} characters")
+        else:
+            print(f"❌ Error: {chunk.get('error', 'Unknown error')}")
+            break
+
+
+async def collaborative_autogen_code_analysis():
+    """Collaborative code analysis with multiple AutoGen agents."""
+    print("\n🔍 Collaborative AutoGen Code Analysis")
+    print("=" * 50)
+    
+    orchestrator = TaskOrchestrator()
+    
+    code_sample = '''
+def user_login(username, password):
+    query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
+    result = db.execute(query)
+    if result:
+        session['user_id'] = result[0]['id']
+        return True
+    return False
+'''
+    
+    task_data = {
+        "message": f"Analyze this code for security and quality issues:\n\n{code_sample}",
+        "agents": [
+            {
+                "type": "user_proxy",
+                "name": "TechLead",
+                "description": "Technical lead requesting code review"
+            },
+            {
+                "type": "assistant",
+                "name": "SecurityAuditor",
+                "description": "Security specialist",
+                "system_message": "You are a cybersecurity expert. Identify security vulnerabilities and provide remediation steps."
+            },
+            {
+                "type": "assistant",
+                "name": "QualityReviewer",
+                "description": "Code quality specialist",
+                "system_message": "You are a senior engineer focused on code quality and best practices."
+            }
+        ],
+        "max_turns": 8
+    }
+    
+    print("👨‍💻 Starting collaborative code analysis...\n")
+    
+    async for chunk in orchestrator.run_agent_stream("autogen", task_data):
+        if chunk["success"]:
+            chunk_type = chunk.get("type", "unknown")
+            
+            if chunk_type == "message":
+                source = chunk.get("source", "Unknown")
+                content = chunk.get("content", "")
+                preview = content[:150] + "..." if len(content) > 150 else content
+                print(f"🔍 {source}: {preview}")
+                
+            elif chunk_type == "complete":
+                print("✅ Code analysis completed!")
+                response = chunk.get("response", "")
+                print(f"📊 Analysis summary: {response[:200]}...")
+        else:
+            print(f"❌ Analysis error: {chunk.get('error', 'Unknown error')}")
+            break
+
+
+async def interactive_autogen_brainstorming():
+    """Interactive brainstorming session with AutoGen agents."""
+    print("\n💡 Interactive AutoGen Brainstorming")
+    print("=" * 50)
+    
+    orchestrator = TaskOrchestrator()
+    
+    topic = "Innovative solutions for sustainable urban transportation"
+    
+    task_data = {
+        "message": f"Brainstorm innovative solutions for: {topic}",
+        "agents": [
+            {
+                "type": "user_proxy",
+                "name": "Moderator",
+                "description": "Session moderator"
+            },
+            {
+                "type": "assistant",
+                "name": "Innovator",
+                "description": "Innovation expert",
+                "system_message": "You are an innovation expert. Generate creative, cutting-edge solutions."
+            },
+            {
+                "type": "assistant",
+                "name": "Analyst",
+                "description": "Feasibility analyst",
+                "system_message": "You are an analyst. Evaluate the feasibility and impact of proposed solutions."
+            }
+        ],
+        "max_turns": 12
+    }
+    
+    print(f"🎯 Brainstorming: {topic}")
+    print("🧠 Starting collaborative session...\n")
+    
+    idea_count = 0
+    
+    async for chunk in orchestrator.run_agent_stream("autogen", task_data):
+        if chunk["success"]:
+            chunk_type = chunk.get("type", "unknown")
+            
+            if chunk_type == "message":
+                source = chunk.get("source", "Unknown")
+                content = chunk.get("content", "")
+                
+                # Count ideas
+                if any(keyword in content.lower() for keyword in ["solution", "idea", "propose"]):
+                    idea_count += 1
+                
+                preview = content[:120] + "..." if len(content) > 120 else content
+                print(f"💭 {source}: {preview}")
+                
+            elif chunk_type == "complete":
+                print(f"✅ Brainstorming completed! Generated {idea_count} ideas")
+                response = chunk.get("response", "")
+                print(f"📋 Session summary: {response[:200]}...")
+        else:
+            print(f"❌ Brainstorming error: {chunk.get('error', 'Unknown error')}")
+            break
+
+
 def main():
     """Main demonstration function."""
     print("🌟 Advanced Agent Streaming Demonstrations")
@@ -250,12 +438,28 @@ def main():
         # Performance monitoring
         streaming_performance_monitor()
 
+        # AutoGen demonstrations
+        print("\n" + "="*60)
+        print("🤖 AUTOGEN STREAMING DEMONSTRATIONS")
+        print("="*60)
+        
+        # Run AutoGen demos asynchronously
+        import asyncio
+        asyncio.run(run_autogen_demos())
+
         print("🎊 All streaming demonstrations completed successfully!")
 
     except Exception as e:
         print(f"❌ Demo failed with error: {str(e)}")
         import traceback
         traceback.print_exc()
+
+
+async def run_autogen_demos():
+    """Run all AutoGen streaming demonstrations."""
+    await advanced_autogen_research_pipeline()
+    await collaborative_autogen_code_analysis()
+    await interactive_autogen_brainstorming()
 
 
 if __name__ == "__main__":

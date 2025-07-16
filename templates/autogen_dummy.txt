@@ -1,0 +1,5 @@
+# AutoGen Agent Template (Not Used)
+# This template is not used by AutoGen agents as they handle conversation flow internally.
+# This file exists only to satisfy the BaseAgent constructor requirement.
+
+You are an AutoGen-powered agent capable of multi-agent conversations.

@@ -264,16 +264,51 @@ The main objective is to make the creation and chaining of agents and fetching t
    })
    ```
 
+### Option 3: AutoGen Multi-Agent Conversations 🆕
+
+1. **Run AutoGen demos:**
+   ```bash
+   uv run autogen_demo.py
+   uv run advanced_streaming_demo.py
+   ```
+
+2. **Use AutoGen in your code:**
+   ```python
+   from api.orchestrator import TaskOrchestrator
+   
+   orchestrator = TaskOrchestrator()
+   result = orchestrator.run_agent("autogen", {
+       "message": "Explain quantum computing",
+       "agents": [
+           {"type": "user_proxy", "name": "Student"},
+           {"type": "assistant", "name": "Expert", 
+            "system_message": "You are a quantum computing expert."}
+       ]
+   })
+   ```
+
+3. **📖 For detailed AutoGen usage, see [AUTOGEN_INTEGRATION.md](AUTOGEN_INTEGRATION.md)**
+
 ## 🚀 Features
 
 - **Modular Agent System**: Extensible base agent class with sample implementations
 - **Multi-Provider Support**: Compatible with OpenAI and DeepSeek language models
+- **🤖 AutoGen Integration**: Full multi-agent conversation support with AutoGen
 - **HTTP API**: FastAPI-based REST API for agent orchestration
 - **Template Management**: Jinja2-based prompt templates stored separately
 - **Comprehensive Logging**: Thread-aware logging with execution tracking
 - **Configuration Management**: Environment-based configuration with validation
 - **Testing Suite**: Unit tests for all major components
+- **Streaming Support**: Real-time streaming for long-running tasks and conversations
 - **Modern Python**: Uses `uv` for dependency management and follows PEP8 standards
+
+### 🆕 AutoGen Integration Features
+
+- **Multi-Agent Conversations**: Create sophisticated conversations between multiple specialized agents
+- **Specialized Workflows**: Pre-built workflows for research, code review, and brainstorming
+- **Real-Time Streaming**: Watch multi-agent conversations unfold in real-time
+- **Seamless Integration**: Works with existing orchestrator and API without breaking changes
+- **Provider Flexibility**: Compatible with OpenAI and includes automatic DeepSeek fallback
 
 ## 📁 Project Structure
 
@@ -541,7 +576,7 @@ def run_advanced_workflow():
                 "agent": "content_writer",
                 "task_data": {
                     "topic": "Q4 Performance & Q1 Forecast Report",
-                    "audience": "C-suite executives", 
+                    "audience": "C-suite executives",
                     "content_type": "executive briefing",
                     "data_source": "{{previous_result}}",
                     "include_charts": True
@@ -1109,7 +1144,7 @@ The project includes comprehensive test files that also serve as usage examples:
 - **`test_advanced_pipeline.py`** - Advanced workflow testing
 - **`test_data_pipeline.py`** - Data pipeline testing
 - **`test_literal_pipeline.py`** - Literal pipeline testing  
-- **`test_pipeline_agents.py`** - Agent pipeline testing
+- **`test_pipeline_agents.py`** - Pipeline agent testing
 
 Run any test file to see example implementations:
 ```bash

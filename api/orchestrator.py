@@ -33,7 +33,9 @@ class TaskOrchestrator:
             "text_processor": TextProcessorAgent,
             "calculator": CalculatorAgent,
             "formatter": FormatterAgent,
-            "summary": SummaryAgent
+            "summary": SummaryAgent,
+            "autogen": BaseAgent,
+            "autogen_workflow": BaseAgent
         }
         orchestrator_logger.info("TaskOrchestrator initialized")
 
