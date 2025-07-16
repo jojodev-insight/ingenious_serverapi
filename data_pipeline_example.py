@@ -2,15 +2,14 @@
 Example demonstrating the enhanced data pipeline workflow with data passing between agents.
 """
 
-import asyncio
-import json
 from api.orchestrator import TaskOrchestrator
+
 
 def example_data_pipeline():
     """Demonstrate data pipeline workflow with multi-agent data passing."""
-    
+
     orchestrator = TaskOrchestrator()
-    
+
     # Example 1: Analysis Pipeline with Data Flow
     analysis_workflow = [
         {
@@ -45,34 +44,34 @@ def example_data_pipeline():
             "transform": "uppercase"
         }
     ]
-    
+
     # Initial data to seed the workflow
     initial_data = {
         "company": "Acme Corp",
         "report_date": "2025-07-15",
         "department": "HR Analytics"
     }
-    
+
     # Global data mapping between steps
     data_mapping = {
         "report_metadata": "job_id",
         "execution_info": "execution_time"
     }
-    
+
     print("🚀 Starting Data Pipeline Workflow...")
     print("=" * 60)
-    
+
     result = orchestrator.run_data_pipeline_workflow(
         workflow=analysis_workflow,
         initial_data=initial_data,
         provider="deepseek",
         data_mapping=data_mapping
     )
-    
+
     print(f"📊 Workflow Success: {result['success']}")
     print(f"⏱️  Execution Time: {result['execution_time']:.2f}s")
     print(f"📈 Steps Completed: {result['completed_steps']}/{result['workflow_steps']}")
-    
+
     # Display data flow summary
     if 'data_flow' in result:
         print("\n📋 Data Flow Summary:")
@@ -85,7 +84,7 @@ def example_data_pipeline():
             if step_info['transform']:
                 print(f"  Transform: {step_info['transform']}")
             print()
-    
+
     # Display step outputs
     if 'step_outputs' in result:
         print("📤 Step Outputs:")
@@ -93,7 +92,7 @@ def example_data_pipeline():
         for key, value in result['step_outputs'].items():
             print(f"{key}: {str(value)[:100]}...")
             print()
-    
+
     # Display final shared data
     if 'final_data' in result:
         print("🎯 Final Shared Data:")
@@ -101,15 +100,15 @@ def example_data_pipeline():
         for key, value in result['final_data'].items():
             print(f"{key}: {value}")
         print()
-    
+
     return result
 
 
 def example_error_handling_pipeline():
     """Demonstrate error handling in data pipeline workflow."""
-    
+
     orchestrator = TaskOrchestrator()
-    
+
     # Workflow with potential failure and error handling
     error_handling_workflow = [
         {
@@ -138,33 +137,33 @@ def example_error_handling_pipeline():
             "output_key": "final_output"
         }
     ]
-    
+
     print("\n🔧 Testing Error Handling Pipeline...")
     print("=" * 45)
-    
+
     result = orchestrator.run_data_pipeline_workflow(
         workflow=error_handling_workflow,
         provider="deepseek"
     )
-    
+
     print(f"📊 Workflow Success: {result['success']}")
     print(f"📈 Steps Completed: {result['completed_steps']}/{result['workflow_steps']}")
-    
+
     # Show which steps succeeded/failed
     for i, step_result in enumerate(result['results']):
         status = "✅ Success" if step_result.get('success') else "❌ Failed"
         print(f"Step {i+1}: {status}")
         if not step_result.get('success'):
             print(f"  Error: {step_result.get('error', 'Unknown error')}")
-    
+
     return result
 
 
 def example_transformation_pipeline():
     """Demonstrate data transformations in the pipeline."""
-    
+
     orchestrator = TaskOrchestrator()
-    
+
     # Workflow with various data transformations
     transform_workflow = [
         {
@@ -187,43 +186,43 @@ def example_transformation_pipeline():
             "transform": "uppercase"
         }
     ]
-    
+
     print("\n🔄 Testing Data Transformation Pipeline...")
     print("=" * 45)
-    
+
     result = orchestrator.run_data_pipeline_workflow(
         workflow=transform_workflow,
         provider="deepseek"
     )
-    
+
     print(f"📊 Workflow Success: {result['success']}")
-    
+
     # Show transformations applied
     if 'data_flow' in result and 'transformations' in result['data_flow']:
         print("\n🔄 Transformations Applied:")
         for transform in result['data_flow']['transformations']:
             print(f"Step {transform['step']}: {transform['transform']}")
-    
+
     return result
 
 
 if __name__ == "__main__":
     print("🎯 Data Pipeline Workflow Examples")
     print("=" * 50)
-    
+
     # Run examples
     try:
         # Main data pipeline example
         result1 = example_data_pipeline()
-        
+
         # Error handling example
         result2 = example_error_handling_pipeline()
-        
+
         # Transformation example
         result3 = example_transformation_pipeline()
-        
+
         print("\n✅ All examples completed!")
-        
+
     except Exception as e:
         print(f"❌ Error running examples: {e}")
         import traceback

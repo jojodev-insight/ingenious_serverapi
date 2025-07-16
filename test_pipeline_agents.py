@@ -4,11 +4,12 @@ Test the new pipeline-optimized agents for reliable data passing.
 
 from api.orchestrator import TaskOrchestrator
 
+
 def test_simple_data_pipeline():
     """Test basic data flow with new agents."""
-    
+
     orchestrator = TaskOrchestrator()
-    
+
     workflow = [
         {
             "agent": "text_processor",
@@ -40,31 +41,31 @@ def test_simple_data_pipeline():
             "output_key": "result_sentence"
         }
     ]
-    
+
     print("🔄 Testing Simple Data Pipeline...")
     print("=" * 40)
-    
+
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
         provider="openai"
     )
-    
+
     print(f"✅ Success: {result['success']}")
     print(f"📊 Steps: {result['completed_steps']}/{result['workflow_steps']}")
-    
+
     # Show each step clearly
     print("\n📋 Pipeline Steps:")
     print("-" * 20)
     for key, value in result.get('step_outputs', {}).items():
         print(f"{key}: {repr(value)}")
-    
+
     return result
 
 def test_number_processing_pipeline():
     """Test number processing and calculations."""
-    
+
     orchestrator = TaskOrchestrator()
-    
+
     workflow = [
         {
             "agent": "text_processor",
@@ -107,17 +108,17 @@ def test_number_processing_pipeline():
             "output_key": "sales_report"
         }
     ]
-    
+
     print("\n🧮 Testing Number Processing Pipeline...")
     print("=" * 45)
-    
+
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
         provider="openai"
     )
-    
+
     print(f"✅ Success: {result['success']}")
-    
+
     # Show transformation flow
     print("\n🔄 Data Transformations:")
     print("-" * 25)
@@ -129,19 +130,19 @@ def test_number_processing_pipeline():
             print(f"  📥 Input: {step['input_mapping']}")
         print(f"  📤 Output: {step['output_key']}")
         print()
-    
+
     # Show results
     print("📊 Results:")
     for key, value in result.get('step_outputs', {}).items():
         print(f"  {key}: {repr(value[:100])}...")
-    
+
     return result
 
 def test_text_formatting_pipeline():
     """Test text processing and formatting."""
-    
+
     orchestrator = TaskOrchestrator()
-    
+
     workflow = [
         {
             "agent": "text_processor",
@@ -172,28 +173,28 @@ def test_text_formatting_pipeline():
             "output_key": "fruit_json"
         }
     ]
-    
+
     print("\n📝 Testing Text Formatting Pipeline...")
     print("=" * 40)
-    
+
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
         provider="openai"
     )
-    
+
     print(f"✅ Success: {result['success']}")
-    
+
     print("\n📋 Step Outputs:")
     for key, value in result.get('step_outputs', {}).items():
         print(f"{key}: {repr(value)}")
-    
+
     return result
 
 def test_error_recovery_pipeline():
     """Test error handling with new agents."""
-    
+
     orchestrator = TaskOrchestrator()
-    
+
     workflow = [
         {
             "agent": "text_processor",
@@ -222,37 +223,37 @@ def test_error_recovery_pipeline():
             "output_key": "recovery_result"
         }
     ]
-    
+
     print("\n🚨 Testing Error Recovery Pipeline...")
     print("=" * 40)
-    
+
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
         provider="openai"
     )
-    
+
     print(f"📊 Overall Success: {result['success']}")
     print(f"📈 Steps Completed: {result['completed_steps']}/{result['workflow_steps']}")
-    
+
     print("\n📋 Step Results:")
     for i, step_result in enumerate(result['results']):
         status = "✅ Success" if step_result.get('success') else "❌ Failed"
         print(f"  Step {i+1}: {status}")
-    
+
     print("\n📤 Available Outputs:")
     for key, value in result.get('step_outputs', {}).items():
         if value is not None:
             print(f"  {key}: {repr(str(value)[:50])}...")
         else:
             print(f"  {key}: None")
-    
+
     return result
 
 def test_complex_data_pipeline():
     """Test a complex multi-step pipeline."""
-    
+
     orchestrator = TaskOrchestrator()
-    
+
     workflow = [
         {
             "agent": "text_processor",
@@ -295,56 +296,56 @@ def test_complex_data_pipeline():
             "output_key": "financial_report"
         }
     ]
-    
+
     initial_data = {
         "company": "Test Corp",
         "year": "2025"
     }
-    
+
     print("\n🏢 Testing Complex Data Pipeline...")
     print("=" * 40)
-    
+
     result = orchestrator.run_data_pipeline_workflow(
         workflow=workflow,
         initial_data=initial_data,
         provider="openai"
     )
-    
+
     print(f"✅ Success: {result['success']}")
     print(f"⏱️  Time: {result['execution_time']:.2f}s")
-    
+
     # Show complete data flow
     print("\n📊 Complete Data Flow:")
     print("-" * 25)
-    print(f"Input: Q1: 1000, Q2: 1500, Q3: 2000, Q4: 2500")
+    print("Input: Q1: 1000, Q2: 1500, Q3: 2000, Q4: 2500")
     for key, value in result.get('step_outputs', {}).items():
         print(f"{key}: {repr(value)}")
-    
+
     print(f"\nShared Data: {result.get('final_data', {})}")
-    
+
     return result
 
 if __name__ == "__main__":
     print("🎯 Pipeline-Optimized Agent Tests")
     print("=" * 50)
-    
+
     # Test all pipelines
     result1 = test_simple_data_pipeline()
     result2 = test_number_processing_pipeline()
     result3 = test_text_formatting_pipeline()
     result4 = test_error_recovery_pipeline()
     result5 = test_complex_data_pipeline()
-    
+
     print("\n✅ All pipeline tests completed!")
-    
+
     # Summary
     all_successful = all([
         result1['success'],
-        result2['success'], 
+        result2['success'],
         result3['success'],
         result4['completed_steps'] > 1,  # Should complete at least some steps
         result5['success']
     ])
-    
+
     print(f"\n📈 Overall Test Success: {all_successful}")
     print("=" * 50)

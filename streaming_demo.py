@@ -6,9 +6,7 @@ This script shows how to use the new streaming capabilities
 of the agent framework with both Azure OpenAI and standard OpenAI.
 """
 
-import asyncio
 import time
-from typing import Dict, Any
 
 from agents.summary_agent import SummaryAgent
 from agents.text_processor_agent import TextProcessorAgent
@@ -18,13 +16,13 @@ from core.config import load_config
 def stream_agent_example():
     """Demonstrate streaming agent output."""
     print("🔄 Agent Streaming Output Demo\n")
-    
+
     # Load configuration
     config = load_config()
-    
+
     # Create a summary agent
     summary_agent = SummaryAgent(config)
-    
+
     # Sample task data
     task_data = {
         "text": """
@@ -38,33 +36,33 @@ def stream_agent_example():
         human capabilities and solve complex global challenges.
         """
     }
-    
+
     print("📝 Input text:")
     print(task_data["text"].strip())
     print("\n" + "="*60 + "\n")
-    
+
     # Example 1: Non-streaming execution
     print("🔵 Non-streaming execution:")
     start_time = time.time()
-    
+
     result = summary_agent.execute(task_data, stream=False)
-    
+
     end_time = time.time()
-    
+
     if result["success"]:
         print(f"✅ Complete response ({end_time - start_time:.2f}s):")
         print(result["response"])
     else:
         print(f"❌ Error: {result['error']}")
-    
+
     print("\n" + "="*60 + "\n")
-    
+
     # Example 2: Streaming execution
     print("🟡 Streaming execution:")
     start_time = time.time()
-    
+
     print("🔄 Streaming response:")
-    
+
     try:
         for chunk in summary_agent.execute_stream(task_data):
             if chunk["success"]:
@@ -82,43 +80,43 @@ def stream_agent_example():
             else:
                 print(f"❌ Streaming error: {chunk['error']}")
                 break
-                
+
     except Exception as e:
         print(f"❌ Exception during streaming: {str(e)}")
-    
+
     print("\n" + "="*60 + "\n")
 
 
 def compare_streaming_modes():
     """Compare streaming vs non-streaming performance."""
     print("⚡ Performance Comparison: Streaming vs Non-Streaming\n")
-    
+
     config = load_config()
     text_processor = TextProcessorAgent(config)
-    
+
     task_data = {
         "text": "The quick brown fox jumps over the lazy dog. " * 50,  # Longer text
         "task": "Rewrite this text to be more engaging and creative."
     }
-    
+
     # Non-streaming
     print("🔵 Non-streaming mode:")
     start_time = time.time()
     result = text_processor.execute(task_data, stream=False)
     non_stream_time = time.time() - start_time
-    
+
     if result["success"]:
         print(f"✅ Response received in {non_stream_time:.2f}s")
         print(f"📏 Response length: {len(result['response'])} characters")
-    
+
     print()
-    
+
     # Streaming
     print("🟡 Streaming mode:")
     start_time = time.time()
     first_chunk_time = None
     total_chunks = 0
-    
+
     try:
         for chunk in text_processor.execute_stream(task_data):
             if chunk["success"]:
@@ -134,10 +132,10 @@ def compare_streaming_modes():
                     print(f"⚡ First chunk received in {first_chunk_time:.2f}s")
                     print(f"📦 Total chunks: {total_chunks}")
                     print(f"📏 Response length: {len(chunk['response'])} characters")
-    
+
     except Exception as e:
         print(f"❌ Streaming error: {str(e)}")
-    
+
     print(f"\n📈 Time to first response: {first_chunk_time:.2f}s vs {non_stream_time:.2f}s")
     print(f"🎯 Streaming advantage: {((non_stream_time - first_chunk_time) / non_stream_time * 100):.1f}% faster to first content")
 
@@ -147,16 +145,16 @@ def main():
     print("🤖 Agent Streaming Output Demonstration")
     print("=" * 50)
     print()
-    
+
     try:
         # Basic streaming example
         stream_agent_example()
-        
+
         # Performance comparison
         compare_streaming_modes()
-        
+
         print("🎉 Demo completed successfully!")
-        
+
     except Exception as e:
         print(f"❌ Demo failed with error: {str(e)}")
         import traceback

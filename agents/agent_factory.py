@@ -1,14 +1,20 @@
 """Agent factory for dynamic agent creation and management."""
 
-from typing import Dict, Any, Optional, Type, Union
+from typing import Any
+
 from .base_agent import BaseAgent, ModelConfig, ProviderConfig
-from .sample_agents import DataAnalystAgent, ContentWriterAgent, CodeReviewerAgent, CustomAgent
 from .file_data_analyst import FileDataAnalyst
+from .sample_agents import (
+    CodeReviewerAgent,
+    ContentWriterAgent,
+    CustomAgent,
+    DataAnalystAgent,
+)
 
 
 class AgentFactory:
     """Factory for creating and managing agents with custom configurations."""
-    
+
     # Registry of available agent types
     AGENT_TYPES = {
         "data_analyst": DataAnalystAgent,
@@ -17,15 +23,15 @@ class AgentFactory:
         "file_data_analyst": FileDataAnalyst,
         "custom": CustomAgent
     }
-    
+
     @classmethod
     def create_agent(
         cls,
         agent_type: str,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        model_config: Optional[Union[ModelConfig, Dict[str, Any]]] = None,
-        agent_config: Optional[Dict[str, Any]] = None
+        provider: str | None = None,
+        model_name: str | None = None,
+        model_config: ModelConfig | dict[str, Any] | None = None,
+        agent_config: dict[str, Any] | None = None
     ) -> BaseAgent:
         """Create an agent with specified configuration.
         
@@ -44,10 +50,10 @@ class AgentFactory:
         """
         if agent_type not in cls.AGENT_TYPES:
             raise ValueError(f"Unsupported agent type: {agent_type}. Available: {list(cls.AGENT_TYPES.keys())}")
-        
+
         agent_class = cls.AGENT_TYPES[agent_type]
         agent_config = agent_config or {}
-        
+
         # Convert dict model_config to ModelConfig if needed
         if isinstance(model_config, dict):
             # Need a model_name for ModelConfig
@@ -56,7 +62,7 @@ class AgentFactory:
                 model_config = None
             else:
                 model_config = ModelConfig(**model_config)
-        
+
         # Prepare initialization parameters
         init_params = {
             "provider": provider,
@@ -64,18 +70,18 @@ class AgentFactory:
             "model_config": model_config,
             **agent_config
         }
-        
+
         return agent_class(**init_params)
-    
+
     @classmethod
     def create_custom_agent(
         cls,
         name: str,
         template_name: str,
         system_message: str,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        model_config: Optional[Union[ModelConfig, Dict[str, Any]]] = None,
+        provider: str | None = None,
+        model_name: str | None = None,
+        model_config: ModelConfig | dict[str, Any] | None = None,
         **kwargs
     ) -> CustomAgent:
         """Create a custom agent with full configuration control.
@@ -94,7 +100,7 @@ class AgentFactory:
         """
         if isinstance(model_config, dict):
             model_config = ModelConfig(**model_config)
-        
+
         return CustomAgent(
             name=name,
             template_name=template_name,
@@ -104,9 +110,9 @@ class AgentFactory:
             model_config=model_config,
             **kwargs
         )
-    
+
     @classmethod
-    def register_agent_type(cls, agent_type: str, agent_class: Type[BaseAgent]) -> None:
+    def register_agent_type(cls, agent_type: str, agent_class: type[BaseAgent]) -> None:
         """Register a new agent type.
         
         Args:
@@ -114,30 +120,30 @@ class AgentFactory:
             agent_class: Agent class to register.
         """
         cls.AGENT_TYPES[agent_type] = agent_class
-    
+
     @classmethod
-    def list_agent_types(cls) -> Dict[str, str]:
+    def list_agent_types(cls) -> dict[str, str]:
         """List all available agent types.
         
         Returns:
             Dictionary mapping agent type names to class names.
         """
         return {name: cls.__name__ for name, cls in cls.AGENT_TYPES.items()}
-    
+
     @classmethod
-    def list_providers(cls) -> Dict[str, list]:
+    def list_providers(cls) -> dict[str, list]:
         """List all available providers and their models.
         
         Returns:
             Dictionary mapping providers to their available models.
         """
         return ProviderConfig.list_models()
-    
+
     @classmethod
     def create_model_config(
         cls,
         model_name: str,
-        provider: Optional[str] = None,
+        provider: str | None = None,
         **kwargs
     ) -> ModelConfig:
         """Create a model configuration.
@@ -161,15 +167,15 @@ class AgentFactory:
             except ValueError:
                 # Provider/model not in predefined configs, create custom
                 pass
-        
+
         # Create custom model config
         return ModelConfig(model_name=model_name, **kwargs)
 
 
 # Convenience functions for quick agent creation
 def create_data_analyst(
-    provider: Optional[str] = None,
-    model_name: Optional[str] = None,
+    provider: str | None = None,
+    model_name: str | None = None,
     **kwargs
 ) -> DataAnalystAgent:
     """Quick creation of a data analyst agent."""
@@ -177,8 +183,8 @@ def create_data_analyst(
 
 
 def create_content_writer(
-    provider: Optional[str] = None,
-    model_name: Optional[str] = None,
+    provider: str | None = None,
+    model_name: str | None = None,
     **kwargs
 ) -> ContentWriterAgent:
     """Quick creation of a content writer agent."""
@@ -186,8 +192,8 @@ def create_content_writer(
 
 
 def create_code_reviewer(
-    provider: Optional[str] = None,
-    model_name: Optional[str] = None,
+    provider: str | None = None,
+    model_name: str | None = None,
     **kwargs
 ) -> CodeReviewerAgent:
     """Quick creation of a code reviewer agent."""

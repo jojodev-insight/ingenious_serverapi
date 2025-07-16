@@ -1,8 +1,9 @@
 """Test configuration for pytest."""
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
@@ -27,7 +28,7 @@ def sample_workflow():
             "task_data": {"data": "test data", "context": "analysis context"}
         },
         {
-            "agent": "content_writer", 
+            "agent": "content_writer",
             "task_data": {"topic": "test results", "audience": "technical"}
         }
     ]

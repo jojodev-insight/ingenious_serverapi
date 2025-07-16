@@ -1,18 +1,19 @@
 """Data Analyst agent with file processing capabilities."""
 
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 from agents.base_agent import BaseAgent, ModelConfig
 
 
 class FileDataAnalyst(BaseAgent):
     """Data analyst agent that can process and analyze various file formats."""
-    
+
     def __init__(
         self,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        model_config: Optional[ModelConfig] = None,
-        data_dir: Optional[str] = None
+        provider: str | None = None,
+        model_name: str | None = None,
+        model_config: ModelConfig | None = None,
+        data_dir: str | None = None
     ):
         """Initialize the File Data Analyst agent.
         
@@ -31,8 +32,8 @@ class FileDataAnalyst(BaseAgent):
             system_message="You are an expert data analyst. Analyze the provided data directly and generate comprehensive insights.",
             data_dir=data_dir
         )
-    
-    def prepare_task(self, task_data: Dict[str, Any]) -> str:
+
+    def prepare_task(self, task_data: dict[str, Any]) -> str:
         """Prepare the task prompt with actual data content.
         
         Args:
@@ -47,7 +48,7 @@ class FileDataAnalyst(BaseAgent):
             Prepared prompt string with actual data content.
         """
         analysis_request = task_data.get("analysis_request", "Please analyze the provided data.")
-        
+
         # Check if data is provided directly
         if "data" in task_data:
             file_summaries = {"Direct Data": str(task_data["data"])}
@@ -56,7 +57,7 @@ class FileDataAnalyst(BaseAgent):
             files_to_analyze = task_data.get("files", [])
             include_all_files = task_data.get("include_all_files", False)
             file_pattern = task_data.get("file_pattern", "*")
-            
+
             # Determine which files to analyze
             if include_all_files:
                 available_files = self.list_data_files(file_pattern)
@@ -65,13 +66,13 @@ class FileDataAnalyst(BaseAgent):
                 # Default to common file types if no files specified
                 available_files = self.list_data_files("*.{csv,xlsx,txt,pdf}")
                 files_to_analyze = [f["name"] for f in available_files if f.get("exists", False)][:3]
-            
+
             # Load actual data content instead of just summaries
             file_summaries = {}
             for filename in files_to_analyze:
                 try:
                     file_data = self.load_data_file(filename)
-                    
+
                     if file_data.get("type") == "dataframe":
                         df = file_data.get("data")
                         if hasattr(df, 'to_string'):
@@ -94,24 +95,24 @@ class FileDataAnalyst(BaseAgent):
                             file_summaries[filename] = data_content
                         else:
                             file_summaries[filename] = f"Data: {str(df)}"
-                    
+
                     elif file_data.get("type") == "text":
                         content = file_data.get("content", "")
                         file_summaries[filename] = f"File: {filename}\nContent:\n{content}"
-                    
+
                     else:
                         file_summaries[filename] = f"File: {filename}\nError: Unsupported file type"
-                        
+
                 except Exception as e:
                     file_summaries[filename] = f"Error loading {filename}: {str(e)}"
-        
+
         # Render the prompt with actual data
         return self.render_prompt(
             analysis_request=analysis_request,
             file_summaries=file_summaries
         )
-    
-    def analyze_data_directly(self, data: Any, analysis_request: str) -> Dict[str, Any]:
+
+    def analyze_data_directly(self, data: Any, analysis_request: str) -> dict[str, Any]:
         """Analyze data directly without file involvement.
         
         Args:
@@ -126,8 +127,8 @@ class FileDataAnalyst(BaseAgent):
             "data": data
         }
         return self.execute(task_data)
-    
-    def analyze_sales_data(self, filename: str = "sales_data.csv") -> Dict[str, Any]:
+
+    def analyze_sales_data(self, filename: str = "sales_data.csv") -> dict[str, Any]:
         """Convenience method to analyze sales data.
         
         Args:
@@ -141,8 +142,8 @@ class FileDataAnalyst(BaseAgent):
             "files": [filename]
         }
         return self.execute(task_data)
-    
-    def analyze_employee_data(self, filename: str = "employee_data.xlsx") -> Dict[str, Any]:
+
+    def analyze_employee_data(self, filename: str = "employee_data.xlsx") -> dict[str, Any]:
         """Convenience method to analyze employee data.
         
         Args:
@@ -156,8 +157,8 @@ class FileDataAnalyst(BaseAgent):
             "files": [filename]
         }
         return self.execute(task_data)
-    
-    def compare_multiple_datasets(self, filenames: List[str]) -> Dict[str, Any]:
+
+    def compare_multiple_datasets(self, filenames: list[str]) -> dict[str, Any]:
         """Compare and analyze multiple datasets.
         
         Args:
@@ -171,8 +172,8 @@ class FileDataAnalyst(BaseAgent):
             "files": filenames
         }
         return self.execute(task_data)
-    
-    def get_available_files_info(self) -> Dict[str, Any]:
+
+    def get_available_files_info(self) -> dict[str, Any]:
         """Get information about all available data files.
         
         Returns:
@@ -180,7 +181,7 @@ class FileDataAnalyst(BaseAgent):
         """
         files_info = self.list_data_files()
         detailed_info = {}
-        
+
         for file_info in files_info:
             filename = file_info["name"]
             try:
@@ -194,5 +195,5 @@ class FileDataAnalyst(BaseAgent):
                     "file_info": file_info,
                     "error": str(e)
                 }
-        
+
         return detailed_info

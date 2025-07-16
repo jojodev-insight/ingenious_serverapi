@@ -1,7 +1,9 @@
 # Save this as custom_agent_example.py and run with:
 #   uv run custom_agent_example.py
+from typing import Any
+
 from agents.base_agent import BaseAgent
-from typing import Dict, Any
+
 
 class MyCustomAgent(BaseAgent):
     def __init__(self, provider: str = None):
@@ -10,8 +12,8 @@ class MyCustomAgent(BaseAgent):
             template_name="my_custom_prompt.txt",
             provider=provider
         )
-    
-    def prepare_task(self, task_data: Dict[str, Any]) -> str:
+
+    def prepare_task(self, task_data: dict[str, Any]) -> str:
         return self.render_prompt(
             task_type=task_data.get("task_type", ""),
             requirements=task_data.get("requirements", ""),

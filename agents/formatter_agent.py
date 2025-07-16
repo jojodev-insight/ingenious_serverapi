@@ -1,12 +1,11 @@
 """Simple formatter agent for pipeline testing."""
 
 from agents.base_agent import BaseAgent
-from core import agent_logger
 
 
 class FormatterAgent(BaseAgent):
     """Agent that formats text in specific ways."""
-    
+
     def __init__(self, provider: str = "deepseek"):
         """Initialize the formatter agent."""
         super().__init__(
@@ -16,13 +15,13 @@ class FormatterAgent(BaseAgent):
             model_name="deepseek-chat"
         )
         self.update_model_config(temperature=0.1)  # Low temperature for consistent formatting
-    
+
     def prepare_task(self, task_data: dict) -> str:
         """Prepare task prompt for formatting."""
         format_type = task_data.get("format", "json")
         data = task_data.get("data", "")
         template = task_data.get("template", "")
-        
+
         if template:
             prompt = f"Format this data using the template. Return only the formatted result:\n\nData: {data}\nTemplate: {template}"
         elif format_type == "json":
@@ -42,8 +41,8 @@ class FormatterAgent(BaseAgent):
             # Fallback to task description
             task = task_data.get("task", "")
             prompt = task
-        
+
         # Add formatting instruction
         prompt += "\n\nIMPORTANT: Return only the formatted result with no additional explanations or commentary."
-        
+
         return prompt

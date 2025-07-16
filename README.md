@@ -9,17 +9,30 @@ The main objective is to make the creation and chaining of agents and fetching t
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- [uv](https://github.com/astral-sh/uv) package manager (cross-platform, recommended)
+- **Python 3.12 or higher** (Python 3.13+ recommended for best compatibility)
+- **Git** (for cloning the repository)
+- **[uv](https://github.com/astral-sh/uv)** package manager (cross-platform, recommended)
 
 ### Installation (All Platforms)
 
-1. **Clone or create the project directory:**
+1. **Clone the repository:**
    ```bash
+   git clone <repository-url>
    cd autogen_project
    ```
+   
+   *If you're working with a local copy, navigate to the project directory:*
+   ```bash
+   cd path/to/autogen_project
+   ```
 
-2. **Install uv** (if not already installed):
+2. **Verify Python version:**
+   ```bash
+   python --version
+   # Should show Python 3.12.x or higher (3.13+ recommended)
+   ```
+
+3. **Install uv** (if not already installed):
 
    - **Windows (PowerShell):**
      ```powershell
@@ -43,29 +56,26 @@ The main objective is to make the creation and chaining of agents and fetching t
 
    See the [uv installation guide](https://github.com/astral-sh/uv#installation) for more options.
 
-
-3. **Create and activate a virtual environment (all OSes):**
+4. **Verify uv installation:**
    ```bash
-   uv venv
-   # On Windows (cmd or PowerShell)
-   .venv\Scripts\activate
-   # On macOS/Linux
-   source .venv/bin/activate
+   uv --version
+   # Should show uv version
    ```
 
-4. **Install dependencies (using uv):**
+5. **Install dependencies and create virtual environment:**
    ```bash
-   uv pip install -e .
+   # This creates a virtual environment and installs all dependencies
+   uv sync
    ```
 
-5. **Install development dependencies** (optional, for testing/linting):
+6. **Install development dependencies** (optional, for testing/linting):
    ```bash
-   uv pip install -e ".[dev]"
+   uv sync --extra dev
    ```
 
 ### Configuration
 
-1. **Create your environment configuration**:
+1. **Create your environment configuration:**
    ```bash
    # Copy the example environment file
    cp .env.example .env
@@ -78,39 +88,147 @@ The main objective is to make the creation and chaining of agents and fetching t
    ```
 
 2. **Update the `.env` file** with your API keys and settings:
+
+   Open the `.env` file in your text editor and configure the following:
+
    ```env
-   # API Keys
-   OPENAI_API_KEY=your_openai_api_key_here
+   # ====================
+   # API KEYS (Required)
+   # ====================
+   # Get your DeepSeek API key from: https://platform.deepseek.com/api_keys
    DEEPSEEK_API_KEY=your_deepseek_api_key_here
-   
-   # Model Provider Configuration
-   DEFAULT_PROVIDER=openai
+
+   # For Azure OpenAI, get your key from Azure Portal
+   # For regular OpenAI, get your key from: https://platform.openai.com/api-keys
+   OPENAI_API_KEY=your_openai_api_key_here
+
+   # ====================
+   # OPENAI/AZURE OPENAI CONFIGURATION
+   # ====================
+   # For Azure OpenAI: Your Azure OpenAI endpoint URL
+   # For regular OpenAI: Leave blank or set to https://api.openai.com/v1
+   OPENAI_API_BASE=https://your-resource-name.openai.azure.com/
+
+   # Model name to use (e.g., gpt-4, gpt-3.5-turbo, gpt-4o)
    OPENAI_MODEL=gpt-4
-   DEEPSEEK_MODEL=deepseek-chat
-   DEEPSEEK_API_BASE=https://api.deepseek.com/v1
-   
-   # Logging Configuration
-   LOG_DIR=logs
-   LOG_LEVEL=INFO
-   
-   # API Configuration
-   API_HOST=localhost
-   API_PORT=8000
+
+   # Azure-specific settings (only needed for Azure OpenAI)
+   AZURE_DEPLOYMENT_NAME=your_deployment_name
+   AZURE_API_VERSION=2024-12-01-preview
+
+   # ====================
+   # PROVIDER SETTINGS
+   # ====================
+   # Default LLM provider: "openai" or "deepseek"
+   DEFAULT_PROVIDER=openai
    ```
-  2. **Create the logs directory:**
-    ```bash
-    # On macOS/Linux
-    mkdir -p logs
-    
-    # On Windows (PowerShell)
-    New-Item -ItemType Directory -Force -Path logs
-    
-    # On Windows (Command Prompt)
-    if not exist logs mkdir logs
-    ```
 
-## �🚀 Quick Start
+3. **Verify required directories exist:**
+   ```bash
+   # These directories should already exist, but verify:
+   ls -la logs/     # Should contain log files
+   ls -la data/     # Should contain sample data files
+   ls -la templates/ # Should contain prompt templates
+   
+   # On Windows:
+   dir logs
+   dir data
+   dir templates
+   
+   # Verify sample data files are present:
+   ls data/employee_data.xlsx data/sales_data.csv data/market_report.txt
+   # On Windows: dir data\employee_data.xlsx data\sales_data.csv data\market_report.txt
+   ```
 
+4. **Test the installation:**
+   ```bash
+   # Test configuration loading
+   uv run python -c "from core import config; print('Configuration loaded successfully')"
+   
+   # Test agent creation
+   uv run python -c "from agents import DataAnalystAgent; print('Agents loaded successfully')"
+   
+   # Test API dependencies
+   uv run python -c "from api.app import app; print('API loaded successfully')"
+   ```
+
+### Verification
+
+1. **Run quick functionality tests:**
+   ```bash
+   # Test configuration and agents
+   uv run python -c "
+   from api.orchestrator import TaskOrchestrator
+   orch = TaskOrchestrator()
+   print('✅ Available agents:', orch.list_agents())
+   print('✅ Configuration loaded successfully')
+   "
+   ```
+
+2. **Test with sample data:**
+   ```bash
+   # Run a simple demo to verify everything works
+   uv run examples/file_data_analyst_demo.py
+   ```
+
+3. **Start the API server (optional test):**
+   ```bash
+   uv run main.py
+   ```
+   
+   Then in another terminal:
+   ```bash
+   curl http://localhost:8000/health
+   # Should return: {"status": "healthy", "timestamp": "..."}
+   
+   curl http://localhost:8000/agents
+   # Should return list of available agents
+   ```
+
+4. **Run the streaming demo:**
+   ```bash
+   uv run advanced_streaming_demo.py
+   ```
+
+### Troubleshooting Installation
+
+**Common Issues:**
+
+1. **Python version too old:**
+   ```bash
+   # Check your Python version
+   python --version
+   # If < 3.12, install Python 3.12+ from python.org
+   # Python 3.13+ is recommended for best compatibility
+   ```
+
+2. **uv command not found:**
+   ```bash
+   # Restart your terminal after installing uv
+   # Or add uv to your PATH manually
+   ```
+
+3. **Permission errors (Linux/macOS):**
+   ```bash
+   # Use user install for uv
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   # Then restart your terminal
+   ```
+
+4. **Virtual environment issues:**
+   ```bash
+   # Remove and recreate the virtual environment
+   rm -rf .venv  # On Windows: rmdir /s .venv
+   uv sync
+   ```
+
+5. **Missing API keys:**
+   ```bash
+   # Verify your .env file exists and has the required keys
+   cat .env  # On Windows: type .env
+   ```
+
+## 🚀 Quick Start
 
 ### Option 1: API Usage (Recommended for external integrations)
 

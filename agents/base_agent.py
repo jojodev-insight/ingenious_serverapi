@@ -2,21 +2,20 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Any, Optional, Union, List
-from jinja2 import Template
+from typing import Any
+
 import openai
 import pandas as pd
 import PyPDF2
 from docx import Document
-import io
-import os
+from jinja2 import Template
 
-from core import config, agent_logger
+from core import agent_logger, config
 
 
 class FileProcessor:
     """Utility class for processing various file formats."""
-    
+
     @staticmethod
     def read_pdf(file_path: str) -> str:
         """Read text content from a PDF file.
@@ -36,7 +35,7 @@ class FileProcessor:
                 return text.strip()
         except Exception as e:
             raise ValueError(f"Error reading PDF file {file_path}: {str(e)}")
-    
+
     @staticmethod
     def read_csv(file_path: str, **kwargs) -> pd.DataFrame:
         """Read data from a CSV file.
@@ -52,9 +51,9 @@ class FileProcessor:
             return pd.read_csv(file_path, **kwargs)
         except Exception as e:
             raise ValueError(f"Error reading CSV file {file_path}: {str(e)}")
-    
+
     @staticmethod
-    def read_excel(file_path: str, sheet_name: Optional[str] = 0, **kwargs) -> Union[pd.DataFrame, Dict[str, pd.DataFrame]]:
+    def read_excel(file_path: str, sheet_name: str | None = 0, **kwargs) -> pd.DataFrame | dict[str, pd.DataFrame]:
         """Read data from an Excel file.
         
         Args:
@@ -69,7 +68,7 @@ class FileProcessor:
             return pd.read_excel(file_path, sheet_name=sheet_name, **kwargs)
         except Exception as e:
             raise ValueError(f"Error reading Excel file {file_path}: {str(e)}")
-    
+
     @staticmethod
     def read_docx(file_path: str) -> str:
         """Read text content from a Word document.
@@ -88,9 +87,9 @@ class FileProcessor:
             return text.strip()
         except Exception as e:
             raise ValueError(f"Error reading Word document {file_path}: {str(e)}")
-    
+
     @staticmethod
-    def get_file_info(file_path: str) -> Dict[str, Any]:
+    def get_file_info(file_path: str) -> dict[str, Any]:
         """Get information about a file.
         
         Args:
@@ -111,9 +110,9 @@ class FileProcessor:
             }
         except Exception as e:
             return {"error": str(e), "exists": False}
-    
+
     @staticmethod
-    def process_file(file_path: str, **kwargs) -> Dict[str, Any]:
+    def process_file(file_path: str, **kwargs) -> dict[str, Any]:
         """Process a file based on its extension.
         
         Args:
@@ -124,13 +123,13 @@ class FileProcessor:
             Dictionary containing processed file data and metadata.
         """
         file_info = FileProcessor.get_file_info(file_path)
-        
+
         if not file_info.get("exists", False):
             raise FileNotFoundError(f"File not found: {file_path}")
-        
+
         extension = file_info["extension"]
         result = {"file_info": file_info, "content": None, "data": None}
-        
+
         try:
             if extension == ".pdf":
                 result["content"] = FileProcessor.read_pdf(file_path)
@@ -146,20 +145,20 @@ class FileProcessor:
                 result["type"] = "text"
             else:
                 # Try to read as text file
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     result["content"] = f.read()
                 result["type"] = "text"
-                
+
         except Exception as e:
             result["error"] = str(e)
             result["type"] = "error"
-        
+
         return result
 
 
 class ModelConfig:
     """Configuration for LLM models."""
-    
+
     def __init__(
         self,
         model_name: str,
@@ -185,8 +184,8 @@ class ModelConfig:
         self.top_p = top_p
         self.frequency_penalty = frequency_penalty
         self.presence_penalty = presence_penalty
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API calls."""
         return {
             "model": self.model_name,
@@ -200,7 +199,7 @@ class ModelConfig:
 
 class ProviderConfig:
     """Configuration for LLM providers."""
-    
+
     # Predefined model configurations for different providers
     PROVIDER_MODELS = {
         "openai": {
@@ -221,7 +220,7 @@ class ProviderConfig:
             "claude-3-haiku": ModelConfig("claude-3-haiku-20240307", max_tokens=1500, temperature=0.7)
         }
     }
-    
+
     @classmethod
     def get_model_config(cls, provider: str, model_name: str) -> ModelConfig:
         """Get model configuration for a provider and model.
@@ -239,7 +238,7 @@ class ProviderConfig:
         provider = provider.lower()
         if provider not in cls.PROVIDER_MODELS:
             raise ValueError(f"Unsupported provider: {provider}")
-        
+
         # For Azure OpenAI, the model_name might be a deployment name
         # Try to find a matching model config, or create a default one
         if provider == "openai" and model_name not in cls.PROVIDER_MODELS[provider]:
@@ -252,7 +251,7 @@ class ProviderConfig:
             else:
                 # Default to gpt-4 config for unknown deployment names
                 base_config = cls.PROVIDER_MODELS[provider].get("gpt-4")
-            
+
             if base_config:
                 # Create a new config with the deployment name
                 return ModelConfig(
@@ -263,14 +262,14 @@ class ProviderConfig:
                     frequency_penalty=base_config.frequency_penalty,
                     presence_penalty=base_config.presence_penalty
                 )
-        
+
         if model_name not in cls.PROVIDER_MODELS[provider]:
             raise ValueError(f"Unsupported model '{model_name}' for provider '{provider}'")
-        
+
         return cls.PROVIDER_MODELS[provider][model_name]
-    
+
     @classmethod
-    def list_models(cls, provider: Optional[str] = None) -> Dict[str, list]:
+    def list_models(cls, provider: str | None = None) -> dict[str, list]:
         """List available models for providers.
         
         Args:
@@ -285,23 +284,23 @@ class ProviderConfig:
                 return {provider: list(cls.PROVIDER_MODELS[provider].keys())}
             else:
                 return {}
-        
+
         return {p: list(models.keys()) for p, models in cls.PROVIDER_MODELS.items()}
 
 
 class BaseAgent(ABC):
     """Base class for all agents in the system."""
-    
+
     def __init__(
-        self, 
-        name: str, 
+        self,
+        name: str,
         template_name: str,
-        provider: Optional[str] = None,
-        model_name: Optional[str] = None,
-        model_config: Optional[ModelConfig] = None,
-        system_message: Optional[str] = None,
-        custom_client_params: Optional[Dict[str, Any]] = None,
-        data_dir: Optional[str] = None
+        provider: str | None = None,
+        model_name: str | None = None,
+        model_config: ModelConfig | None = None,
+        system_message: str | None = None,
+        custom_client_params: dict[str, Any] | None = None,
+        data_dir: str | None = None
     ) -> None:
         """Initialize the base agent.
         
@@ -320,10 +319,10 @@ class BaseAgent(ABC):
         self.provider = provider or config.default_provider
         self.custom_client_params = custom_client_params or {}
         self.data_dir = Path(data_dir) if data_dir else Path("data")
-        
+
         # Ensure data directory exists
         self.data_dir.mkdir(exist_ok=True)
-        
+
         # Set up model configuration
         if model_config:
             self.model_config = model_config
@@ -333,32 +332,32 @@ class BaseAgent(ABC):
             # Use default model from config
             default_model = self._get_default_model_name()
             self.model_config = ProviderConfig.get_model_config(self.provider, default_model)
-        
+
         # Handle Azure OpenAI deployment names
         if self.provider.lower() == "openai" and config.is_azure_openai:
             # For Azure OpenAI, use deployment name from config
             original_model = self.model_config.model_name
             deployment_name = config.azure_deployment_name
-            
+
             # If a specific model was requested, try to map it to deployment name
             # Otherwise use the configured deployment name
             if model_name and model_name != original_model:
                 # User specified a different model, but for Azure we still need to use deployment name
                 # Log this mapping
                 agent_logger.info(f"Azure OpenAI: Requested model '{model_name}' will use deployment '{deployment_name}'")
-            
+
             self.model_config.model_name = deployment_name
             agent_logger.info(f"Azure OpenAI detected: Using deployment '{deployment_name}' (original model: '{original_model}')")
-        
+
         self.system_message = system_message or f"You are {name}, a helpful AI assistant."
-        
+
         # Load prompt template
         self.template = self._load_template()
-        
+
         # Initialize client
         self.client = self._create_client()
-    
-    def _get_client_params_from_config(self) -> Dict[str, Any]:
+
+    def _get_client_params_from_config(self) -> dict[str, Any]:
         """Get client parameters from configuration for this provider."""
         llm_config = config.get_llm_config(self.provider)
         if llm_config.get("config_list"):
@@ -366,7 +365,7 @@ class BaseAgent(ABC):
             config_item = llm_config["config_list"][0]
             return {k: v for k, v in config_item.items() if k != "model"}
         return {}
-    
+
     def _get_default_model_name(self) -> str:
         """Get the default model name for the current provider."""
         if self.provider.lower() == "openai":
@@ -380,29 +379,29 @@ class BaseAgent(ABC):
                 return list(provider_models.keys())[0]
             else:
                 raise ValueError(f"No default model available for provider: {self.provider}")
-    
+
     def _load_template(self) -> Template:
         """Load prompt template from file."""
         template_path = Path(config.templates_dir) / self.template_name
-        
+
         if not template_path.exists():
             raise FileNotFoundError(f"Template not found: {template_path}")
-        
-        with open(template_path, 'r', encoding='utf-8') as f:
+
+        with open(template_path, encoding='utf-8') as f:
             template_content = f.read()
-        
+
         return Template(template_content)
-    
-    def _create_client(self) -> Union[openai.OpenAI, Any]:
+
+    def _create_client(self) -> openai.OpenAI | Any:
         """Create the appropriate client based on provider."""
         # Start with custom client params, then add config params
         base_params = self.custom_client_params.copy()
         config_params = self._get_client_params_from_config()
-        
+
         # Merge config params with custom params (custom params take precedence)
         for key, value in config_params.items():
             base_params.setdefault(key, value)
-        
+
         if self.provider.lower() == "openai":
             # Check if this is Azure OpenAI based on the config params
             if "azure_endpoint" in base_params and "api_version" in base_params:
@@ -411,7 +410,7 @@ class BaseAgent(ABC):
                     from openai import AzureOpenAI
                     agent_logger.info(f"Creating Azure OpenAI client for agent '{self.name}' with endpoint: {base_params.get('azure_endpoint')}, API version: {base_params.get('api_version')}")
                     client = AzureOpenAI(**base_params)
-                    
+
                     # Test the client with a simple call to verify it works
                     try:
                         # This is a minimal test that shouldn't cost tokens
@@ -420,10 +419,10 @@ class BaseAgent(ABC):
                     except Exception as e:
                         agent_logger.warning(f"Azure OpenAI client test failed: {e}. Falling back to regular OpenAI.")
                         # Fall through to the fallback logic below
-                        
+
                 except ImportError:
                     agent_logger.warning("AzureOpenAI not available, falling back to regular OpenAI client")
-                
+
                 # Fallback: Get regular OpenAI config and create standard client
                 try:
                     fallback_config = config.get_llm_config(self.provider, force_fallback=True)
@@ -433,7 +432,7 @@ class BaseAgent(ABC):
                         for key, value in fallback_config_item.items():
                             if key != "model":
                                 fallback_params.setdefault(key, value)
-                    
+
                     agent_logger.info(f"Creating fallback OpenAI client for agent '{self.name}' with base URL: {fallback_params.get('base_url', 'https://api.openai.com/v1')}")
                     return openai.OpenAI(**fallback_params)
                 except Exception as e:
@@ -459,7 +458,7 @@ class BaseAgent(ABC):
             return openai.OpenAI(**base_params)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
-    
+
     def update_model_config(self, **kwargs: Any) -> None:
         """Update model configuration parameters.
         
@@ -471,10 +470,10 @@ class BaseAgent(ABC):
                 setattr(self.model_config, key, value)
             else:
                 raise ValueError(f"Invalid model configuration parameter: {key}")
-        
+
         agent_logger.info(f"Updated model config for agent '{self.name}': {kwargs}")
-    
-    def get_model_info(self) -> Dict[str, Any]:
+
+    def get_model_info(self) -> dict[str, Any]:
         """Get current model information.
         
         Returns:
@@ -487,7 +486,7 @@ class BaseAgent(ABC):
             "model_config": self.model_config.to_dict(),
             "system_message": self.system_message
         }
-    
+
     def render_prompt(self, **kwargs: Any) -> str:
         """Render the prompt template with provided variables.
         
@@ -498,8 +497,8 @@ class BaseAgent(ABC):
             Rendered prompt string.
         """
         return self.template.render(**kwargs)
-    
-    def load_data_file(self, filename: str, **kwargs) -> Dict[str, Any]:
+
+    def load_data_file(self, filename: str, **kwargs) -> dict[str, Any]:
         """Load a data file from the data directory.
         
         Args:
@@ -511,8 +510,8 @@ class BaseAgent(ABC):
         """
         file_path = self.data_dir / filename
         return FileProcessor.process_file(str(file_path), **kwargs)
-    
-    def list_data_files(self, pattern: str = "*") -> List[Dict[str, Any]]:
+
+    def list_data_files(self, pattern: str = "*") -> list[dict[str, Any]]:
         """List available data files in the data directory.
         
         Args:
@@ -526,8 +525,8 @@ class BaseAgent(ABC):
             if file_path.is_file():
                 files.append(FileProcessor.get_file_info(str(file_path)))
         return files
-    
-    def process_multiple_files(self, filenames: List[str], **kwargs) -> Dict[str, Any]:
+
+    def process_multiple_files(self, filenames: list[str], **kwargs) -> dict[str, Any]:
         """Process multiple data files.
         
         Args:
@@ -544,7 +543,7 @@ class BaseAgent(ABC):
             except Exception as e:
                 results[filename] = {"error": str(e), "type": "error"}
         return results
-    
+
     def get_data_summary(self, filename: str) -> str:
         """Get a text summary of a data file suitable for LLM processing.
         
@@ -556,24 +555,24 @@ class BaseAgent(ABC):
         """
         try:
             file_data = self.load_data_file(filename)
-            
+
             if file_data.get("type") == "error":
                 return f"Error processing file {filename}: {file_data.get('error', 'Unknown error')}"
-            
+
             summary = f"File: {filename}\n"
             summary += f"Size: {file_data['file_info']['size']} bytes\n"
             summary += f"Type: {file_data['file_info']['extension']}\n\n"
-            
+
             if file_data.get("type") == "text":
                 content = file_data.get("content", "")
                 if len(content) > 2000:
                     summary += f"Content preview (first 2000 chars):\n{content[:2000]}...\n"
                 else:
                     summary += f"Content:\n{content}\n"
-            
+
             elif file_data.get("type") == "dataframe":
                 df = file_data.get("data")
-                
+
                 # Handle case where Excel file returns dict of DataFrames (multiple sheets)
                 if isinstance(df, dict):
                     summary += "Excel file with multiple sheets:\n"
@@ -592,14 +591,14 @@ class BaseAgent(ABC):
                 else:
                     summary += f"Data type: {type(df)}\n"
                     summary += f"Data preview: {str(df)[:500]}\n"
-            
+
             return summary
-            
+
         except Exception as e:
             return f"Error getting summary for {filename}: {str(e)}"
-    
+
     @abstractmethod
-    def prepare_task(self, task_data: Dict[str, Any]) -> str:
+    def prepare_task(self, task_data: dict[str, Any]) -> str:
         """Prepare the task prompt from input data.
         
         Args:
@@ -609,8 +608,8 @@ class BaseAgent(ABC):
             Prepared prompt string.
         """
         pass
-    
-    def execute(self, task_data: Dict[str, Any], stream: bool = False) -> Dict[str, Any]:
+
+    def execute(self, task_data: dict[str, Any], stream: bool = False) -> dict[str, Any]:
         """Execute the agent task.
         
         Args:
@@ -624,8 +623,8 @@ class BaseAgent(ABC):
             return self.execute_stream(task_data)
         else:
             return self.execute_sync(task_data)
-    
-    def execute_sync(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
+
+    def execute_sync(self, task_data: dict[str, Any]) -> dict[str, Any]:
         """Execute the agent task synchronously (non-streaming).
         
         Args:
@@ -635,25 +634,25 @@ class BaseAgent(ABC):
             Dictionary containing execution results.
         """
         agent_logger.log_agent_start(self.name, str(task_data))
-        
+
         try:
             # Prepare the task prompt
             prompt = self.prepare_task(task_data)
-            
+
             # Create messages
             messages = [
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt}
             ]
-            
+
             # Prepare API call parameters
             api_params = self.model_config.to_dict()
             api_params["messages"] = messages
             api_params["stream"] = False
-            
+
             # Call the LLM
             response = self.client.chat.completions.create(**api_params)
-            
+
             result = {
                 "success": True,
                 "response": response.choices[0].message.content,
@@ -663,14 +662,14 @@ class BaseAgent(ABC):
                 "usage": getattr(response, 'usage', None),
                 "stream": False
             }
-            
+
             agent_logger.log_agent_end(self.name, str(task_data), True)
             return result
-            
+
         except Exception as e:
             agent_logger.error(f"Agent '{self.name}' execution failed", {"error": str(e)})
             agent_logger.log_agent_end(self.name, str(task_data), False)
-            
+
             return {
                 "success": False,
                 "error": str(e),
@@ -679,8 +678,8 @@ class BaseAgent(ABC):
                 "model_name": getattr(self.model_config, 'model_name', 'unknown'),
                 "stream": False
             }
-    
-    def execute_stream(self, task_data: Dict[str, Any]):
+
+    def execute_stream(self, task_data: dict[str, Any]):
         """Execute the agent task with streaming response.
         
         Args:
@@ -690,27 +689,27 @@ class BaseAgent(ABC):
             Dictionary chunks containing streaming execution results.
         """
         agent_logger.log_agent_start(self.name, str(task_data))
-        
+
         try:
             # Prepare the task prompt
             prompt = self.prepare_task(task_data)
-            
+
             # Create messages
             messages = [
                 {"role": "system", "content": self.system_message},
                 {"role": "user", "content": prompt}
             ]
-            
+
             # Prepare API call parameters
             api_params = self.model_config.to_dict()
             api_params["messages"] = messages
             api_params["stream"] = True
-            
+
             # Call the LLM with streaming
             stream = self.client.chat.completions.create(**api_params)
-            
+
             full_content = ""
-            
+
             # Yield initial metadata
             yield {
                 "success": True,
@@ -720,13 +719,13 @@ class BaseAgent(ABC):
                 "stream": True,
                 "type": "start"
             }
-            
+
             # Stream the response
             for chunk in stream:
                 if chunk.choices[0].delta.content is not None:
                     content = chunk.choices[0].delta.content
                     full_content += content
-                    
+
                     yield {
                         "success": True,
                         "chunk": content,
@@ -736,7 +735,7 @@ class BaseAgent(ABC):
                         "stream": True,
                         "type": "chunk"
                     }
-            
+
             # Yield final result
             yield {
                 "success": True,
@@ -747,13 +746,13 @@ class BaseAgent(ABC):
                 "stream": True,
                 "type": "complete"
             }
-            
+
             agent_logger.log_agent_end(self.name, str(task_data), True)
-            
+
         except Exception as e:
             agent_logger.error(f"Agent '{self.name}' streaming execution failed", {"error": str(e)})
             agent_logger.log_agent_end(self.name, str(task_data), False)
-            
+
             yield {
                 "success": False,
                 "error": str(e),
