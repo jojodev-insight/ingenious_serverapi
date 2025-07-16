@@ -2,7 +2,96 @@
 
 A modular and testable Python project that uses the **Autogen API**, supporting both **OpenAI** and **DeepSeek** as language model providers with a FastAPI-based orchestration system.
 
-## 🚀 Quick Start
+
+## 🛠️ Setup Instructions
+
+### Prerequisites
+
+- Python 3.8 or higher
+- [uv](https://github.com/astral-sh/uv) package manager (cross-platform, recommended)
+
+### Installation (All Platforms)
+
+1. **Clone or create the project directory:**
+   ```bash
+   cd autogen_project
+   ```
+
+2. **Install uv** (if not already installed):
+
+   - **Windows (PowerShell):**
+     ```powershell
+     irm https://astral.sh/uv/install.ps1 | iex
+     ```
+
+   - **macOS/Linux (bash/zsh):**
+     ```bash
+     curl -LsSf https://astral.sh/uv/install.sh | sh
+     ```
+
+   - **Arch Linux (pacman):**
+     ```bash
+     sudo pacman -S uv
+     ```
+
+   - **Homebrew (macOS/Linux):**
+     ```bash
+     brew install uv
+     ```
+
+   See the [uv installation guide](https://github.com/astral-sh/uv#installation) for more options.
+
+3. **Create and activate a virtual environment (all OSes):**
+   ```bash
+   uv venv
+   # On Windows (cmd or PowerShell)
+   .venv\Scripts\activate
+   # On macOS/Linux
+   source .venv/bin/activate
+   ```
+
+4. **Install dependencies:**
+   ```bash
+   uv pip install -e .
+   ```
+
+5. **Install development dependencies** (optional, for testing/linting):
+   ```bash
+   uv pip install -e ".[dev]"
+   ```
+
+### Configuration
+
+1. **Update the `.env` file** with your API keys and settings:
+   ```env
+   # API Keys
+   OPENAI_API_KEY=your_openai_api_key_here
+   DEEPSEEK_API_KEY=your_deepseek_api_key_here
+   
+   # Model Provider Configuration
+   DEFAULT_PROVIDER=openai
+   OPENAI_MODEL=gpt-4
+   DEEPSEEK_MODEL=deepseek-chat
+   DEEPSEEK_API_BASE=https://api.deepseek.com/v1
+   
+   # Logging Configuration
+   LOG_DIR=logs
+   LOG_LEVEL=INFO
+   
+   # API Configuration
+   API_HOST=localhost
+   API_PORT=8000
+   ```
+
+2. **Ensure the logs directory exists:**
+   ```bash
+   # On all OSes
+   mkdir -p logs
+   # On Windows (cmd, fallback if mkdir -p fails):
+   if not exist logs mkdir logs
+   ```
+
+## �🚀 Quick Start
 
 ### Option 1: API Usage (Recommended for external integrations)
 
@@ -79,76 +168,6 @@ autogen_project/
 ├── main.py               # Application entry point
 └── README.md             # This file
 ```
-
-## 🛠️ Setup Instructions
-
-### Prerequisites
-
-- Python 3.8 or higher
-- [uv](https://github.com/astral-sh/uv) package manager
-
-### Installation
-
-1. **Clone or create the project directory**:
-   ```bash
-   cd autogen_project
-   ```
-
-2. **Install uv** (if not already installed):
-   ```bash
-   # On Windows (PowerShell)
-   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-   
-   # On macOS/Linux
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
-
-3. **Create and activate virtual environment**:
-   ```bash
-   uv venv
-   # On Windows
-   .venv\Scripts\activate
-   # On macOS/Linux
-   source .venv/bin/activate
-   ```
-
-4. **Install dependencies**:
-   ```bash
-   uv pip install -e .
-   ```
-
-5. **Install development dependencies** (optional):
-   ```bash
-   uv pip install -e ".[dev]"
-   ```
-
-### Configuration
-
-1. **Update the `.env` file** with your API keys:
-   ```env
-   # API Keys
-   OPENAI_API_KEY=your_openai_api_key_here
-   DEEPSEEK_API_KEY=your_deepseek_api_key_here
-   
-   # Model Provider Configuration
-   DEFAULT_PROVIDER=openai
-   OPENAI_MODEL=gpt-4
-   DEEPSEEK_MODEL=deepseek-chat
-   DEEPSEEK_API_BASE=https://api.deepseek.com/v1
-   
-   # Logging Configuration
-   LOG_DIR=logs
-   LOG_LEVEL=INFO
-   
-   # API Configuration
-   API_HOST=localhost
-   API_PORT=8000
-   ```
-
-2. **Ensure the logs directory exists**:
-   ```bash
-   mkdir -p logs
-   ```
 
 ## 🏃 Running the Application
 
