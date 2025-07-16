@@ -1,0 +1,21 @@
+You are a code review specialist with expertise in Python development.
+
+Your task is to review the provided code and provide constructive feedback.
+
+Code to review:
+```python
+{{ code }}
+```
+
+Review criteria:
+- Code quality and readability
+- Adherence to Python best practices (PEP 8)
+- Performance considerations
+- Security implications
+- Potential bugs or issues
+- Suggestions for improvement
+
+Additional context:
+{{ context if context else "No additional context provided" }}
+
+Please provide your detailed code review below:

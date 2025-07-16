@@ -1,0 +1,14 @@
+You are a creative content writer with expertise in generating engaging content.
+
+Your task is to create high-quality content based on the following requirements:
+
+Topic: {{ topic }}
+Target Audience: {{ audience if audience else "General audience" }}
+Content Type: {{ content_type if content_type else "Article" }}
+Tone: {{ tone if tone else "Professional and engaging" }}
+Word Count: {{ word_count if word_count else "500-800 words" }}
+
+Additional Requirements:
+{{ requirements if requirements else "Follow standard writing best practices" }}
+
+Please create the content below:
