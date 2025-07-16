@@ -103,6 +103,10 @@ class WorkflowResponse(BaseModel):
     results: List[Dict[str, Any]]
     orchestrator: str
     error: Optional[str] = None
+    
+    class Config:
+        # Allow arbitrary types to handle complex nested structures
+        arbitrary_types_allowed = True
 
 
 # Create FastAPI app
@@ -185,7 +189,7 @@ async def run_agent(request: TaskRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/run-workflow", response_model=WorkflowResponse)
+@app.post("/run-workflow")
 async def run_workflow(request: WorkflowRequest):
     """Run a multi-agent workflow.
     
@@ -213,7 +217,22 @@ async def run_workflow(request: WorkflowRequest):
             provider=request.provider
         )
         
-        return WorkflowResponse(**result)
+        # Clean the result for proper JSON serialization
+        # Convert complex objects to simple representations
+        def clean_for_json(obj):
+            if isinstance(obj, dict):
+                return {k: clean_for_json(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [clean_for_json(item) for item in obj]
+            elif hasattr(obj, '__dict__'):
+                # Convert objects with __dict__ to their dictionary representation
+                return clean_for_json(obj.__dict__)
+            else:
+                # For primitive types, return as-is
+                return obj
+        
+        cleaned_result = clean_for_json(result)
+        return cleaned_result
         
     except Exception as e:
         orchestrator_logger.error("API error running workflow", {"error": str(e)})

@@ -147,32 +147,64 @@ A modular and testable Python project that uses the **Autogen API**, supporting 
 
 ```
 autogen_project/
-├── agents/                 # Agent logic modules
-│   ├── __init__.py
-│   ├── base_agent.py      # Base agent class
-│   └── sample_agents.py   # Sample agent implementations
-├── api/                   # API routes and orchestrator logic
-│   ├── __init__.py
-│   ├── orchestrator.py    # Task orchestration logic
-│   └── app.py            # FastAPI application
-├── templates/             # Prompt templates (Jinja2)
-│   ├── data_analyst_prompt.txt
-│   ├── content_writer_prompt.txt
-│   └── code_reviewer_prompt.txt
-├── core/                  # Core utilities
-│   ├── __init__.py
-│   ├── config.py         # Configuration management
-│   └── logger.py         # Logging utilities
-├── tests/                 # Test suite
-│   ├── conftest.py
-│   ├── test_config.py
-│   ├── test_logger.py
-│   └── test_orchestrator.py
-├── logs/                  # Default logging output directory
-├── .env                   # Environment configuration
-├── pyproject.toml         # UV dependency definition
-├── main.py               # Application entry point
-└── README.md             # This file
+├── agents/                      # Agent logic modules
+│   ├── __init__.py             # Agent module exports
+│   ├── agent_factory.py        # Factory for creating agents
+│   ├── base_agent.py           # Base agent class
+│   ├── calculator_agent.py     # Calculator/math operations agent
+│   ├── file_data_analyst.py    # File analysis agent
+│   ├── formatter_agent.py      # Text formatting agent
+│   ├── sample_agents.py        # Sample agent implementations
+│   ├── summary_agent.py        # Text summarization agent
+│   └── text_processor_agent.py # Text processing agent
+├── api/                        # API routes and orchestrator logic
+│   ├── __init__.py             # API module initialization
+│   ├── app.py                  # FastAPI application
+│   └── orchestrator.py         # Task orchestration logic
+├── core/                       # Core utilities
+│   ├── __init__.py             # Core module exports
+│   ├── config.py               # Configuration management
+│   └── logger.py               # Logging utilities
+├── data/                       # Sample data files
+│   ├── employee_data.xlsx      # Sample employee dataset
+│   ├── market_report.txt       # Sample market analysis text
+│   └── sales_data.csv          # Sample sales metrics
+├── examples/                   # Example implementations
+│   └── file_data_analyst_demo.py # File analysis demo
+├── logs/                       # Default logging output directory
+│   ├── agent.log               # Agent execution logs
+│   └── orchestrator.log        # Orchestrator and API logs
+├── templates/                  # Prompt templates (Jinja2)
+│   ├── calculator.txt          # Calculator agent prompt
+│   ├── code_reviewer_prompt.txt # Code review prompt template
+│   ├── content_writer_prompt.txt # Content writing prompt
+│   ├── data_analyst_prompt.txt # Data analysis prompt
+│   ├── data_analyst_with_files.txt # File analysis prompt
+│   ├── formatter.txt           # Text formatting prompt
+│   ├── summary_prompt.txt      # Summarization prompt
+│   └── text_processor.txt      # Text processing prompt
+├── tests/                      # Test suite
+│   ├── __init__.py             # Test package initialization
+│   ├── conftest.py             # Pytest configuration
+│   ├── test_config.py          # Configuration tests
+│   ├── test_enhanced_agents.py # Enhanced agent tests
+│   ├── test_enhanced_orchestrator.py # Enhanced orchestrator tests
+│   ├── test_file_processing.py # File processing tests
+│   ├── test_logger.py          # Logger tests
+│   └── test_orchestrator.py    # Orchestrator tests
+├── .env                        # Environment configuration
+├── .gitignore                  # Git ignore rules
+├── cli.py                      # Command-line interface
+├── curl_equivalent.py          # API usage examples (Python)
+├── data_pipeline_example.py    # Data pipeline demonstration
+├── main.py                     # Application entry point
+├── pyproject.toml              # UV dependency definition
+├── test_advanced_pipeline.py   # Advanced pipeline tests
+├── test_data_pipeline.py       # Data pipeline tests
+├── test_literal_pipeline.py    # Literal pipeline tests
+├── test_pipeline_agents.py     # Pipeline agent tests
+├── uv.lock                     # UV lock file
+└── README.md                   # This file
 ```
 
 ## 🏃 Running the Application
@@ -226,7 +258,7 @@ curl -X POST "http://localhost:8000/run-agent" \
          "data": "Sales data: Q1=100, Q2=150, Q3=200, Q4=180",
          "context": "Quarterly sales analysis for 2024"
        },
-       "provider": "openai"
+       "provider": "openai"  # Default to OpenAI, fallback to DeepSeek automatically
      }'
 ```
 
@@ -240,7 +272,7 @@ curl -X POST "http://localhost:8000/run-agent" \
          "analysis_request": "Examine employee performance, salary distribution, and department insights",
          "files": ["employee_data.xlsx"]
        },
-       "provider": "deepseek",
+       "provider": "openai",  # Default to OpenAI, fallback to DeepSeek automatically
        "model_name": "deepseek-chat",
        "llm_config": {
          "temperature": 0.2,
@@ -263,7 +295,7 @@ data = {
         "analysis_request": "Analyze sales trends and performance metrics",
         "files": ["sales_data.csv"]
     },
-    "provider": "openai",
+    "provider": "openai",  # Default to OpenAI, fallback to DeepSeek automatically
     "model_name": "gpt-4"
 }
 
@@ -295,7 +327,7 @@ curl -X POST "http://localhost:8000/run-workflow" \
            }
          }
        ],
-       "provider": "deepseek"
+       "provider": "openai"  # Default to OpenAI, fallback to DeepSeek automatically
      }'
 ```
 
@@ -418,7 +450,7 @@ if __name__ == "__main__":
 #   uv run direct_agent_example.py
 from agents import FileDataAnalyst
 
-# Create and configure an agent
+# Create and configure an agent (defaults to OpenAI, falls back to DeepSeek)
 agent = FileDataAnalyst(provider="openai")
 
 # Prepare a task
@@ -449,11 +481,11 @@ from agents import AgentFactory
 # List available agent types
 print("Available agents:", AgentFactory.list_agent_types())
 
-# Create agent via factory
+# Create agent via factory (defaults to OpenAI, falls back to DeepSeek)
 agent = AgentFactory.create_agent(
     "file_data_analyst",
-    provider="deepseek",
-    model_name="deepseek-chat"
+    provider="openai",  # Default to OpenAI
+    model_name="gpt-4"
 )
 
 # Use convenience methods for specific analysis types
@@ -483,7 +515,7 @@ task_result = orchestrator.execute_agent_task(
         "data": "Revenue: Q1=$50k, Q2=$75k, Q3=$90k, Q4=$85k",
         "context": "Annual revenue analysis"
     },
-    provider="openai"
+    provider="openai"  # Default to OpenAI, fallback to DeepSeek automatically
 )
 
 print("Task result:", task_result)
@@ -505,12 +537,12 @@ async def run_multiple_agents():
         orchestrator.execute_agent_task(
             "data_analyst", 
             {"data": "Q1 metrics", "context": "Financial analysis"},
-            "openai"
+            "openai"  # Default to OpenAI, fallback to DeepSeek automatically
         ),
         orchestrator.execute_agent_task(
             "content_writer",
             {"topic": "Q1 Report", "audience": "executives"},
-            "deepseek"
+            "openai"  # Default to OpenAI, fallback to DeepSeek automatically
         )
     ]
     
@@ -570,7 +602,7 @@ print("Custom agent result:", result)
 #   uv run programmatic_workflow_example.py
 import asyncio
 from typing import Dict, Any
-from agents import FileDataAnalyst, DataAnalyst, ContentWriter
+from agents import FileDataAnalyst, DataAnalystAgent, ContentWriterAgent
 from core.logger import agent_logger
 
 class AdvancedWorkflowOrchestrator:
@@ -617,7 +649,7 @@ class AdvancedWorkflowOrchestrator:
         print("\n📊 Stage 1: File Data Analysis")
         print("-" * 30)
         
-        # Initialize File Data Analyst
+        # Initialize File Data Analyst (defaults to OpenAI, falls back to DeepSeek)
         analyst = FileDataAnalyst(provider="openai")
         
         task_data = {
@@ -649,8 +681,8 @@ class AdvancedWorkflowOrchestrator:
         print("\n📈 Stage 2: Predictive Analytics")
         print("-" * 30)
         
-        # Initialize Data Analyst for forecasting
-        predictor = DataAnalyst(provider="deepseek")
+        # Initialize Data Analyst for forecasting (defaults to OpenAI, falls back to DeepSeek)
+        predictor = DataAnalystAgent(provider="openai")
         
         task_data = {
             "data": previous_result,
@@ -686,8 +718,8 @@ class AdvancedWorkflowOrchestrator:
         print("\n📋 Stage 3: Executive Report Generation")
         print("-" * 30)
         
-        # Initialize Content Writer for executive communication
-        writer = ContentWriter(provider="openai")
+        # Initialize Content Writer for executive communication (defaults to OpenAI, falls back to DeepSeek)
+        writer = ContentWriterAgent(provider="openai")
         
         # Combine previous results for comprehensive context
         combined_data = {
@@ -786,31 +818,54 @@ if __name__ == "__main__":
 
 The project includes several example files to help you get started:
 
+#### Root Level Examples
 
-#### `curl_equivalent.py` - API Usage Example
-A complete Python script that demonstrates how to call the API endpoints. Run it directly after setup:
-```bash
-uv run curl_equivalent.py
-```
+- **`curl_equivalent.py`** - API Usage Example
+  A complete Python script that demonstrates how to call the API endpoints programmatically. Includes the advanced 3-stage workflow implementation.
+  ```bash
+  uv run curl_equivalent.py
+  ```
 
-#### `examples/file_data_analyst_demo.py` - Local Usage Example  
-Comprehensive demo showing local agent usage. Run it independently:
-```bash
-uv run examples/file_data_analyst_demo.py
-```
+- **`data_pipeline_example.py`** - Pipeline Demo
+  Shows how to chain multiple agents together for complex data processing workflows.
+  ```bash
+  uv run data_pipeline_example.py
+  ```
 
-#### `data_pipeline_example.py` - Pipeline Demo
-Shows how to chain multiple agents together for complex workflows. Run it independently:
+- **`cli.py`** - Command-Line Interface
+  Interactive CLI tool for running agents and workflows from the command line.
+  ```bash
+  uv run cli.py
+  ```
+
+#### Examples Directory
+
+- **`examples/file_data_analyst_demo.py`** - Local Usage Example  
+  Comprehensive demo showing local agent usage with file analysis capabilities.
+  ```bash
+  uv run examples/file_data_analyst_demo.py
+  ```
+
+#### Test Examples
+The project includes comprehensive test files that also serve as usage examples:
+
+- **`test_advanced_pipeline.py`** - Advanced workflow testing
+- **`test_data_pipeline.py`** - Data pipeline testing
+- **`test_literal_pipeline.py`** - Literal pipeline testing  
+- **`test_pipeline_agents.py`** - Agent pipeline testing
+
+Run any test file to see example implementations:
 ```bash
-uv run data_pipeline_example.py
+uv run python test_advanced_pipeline.py
 ```
 
 > **Note:** All scripts above assume you have completed the setup and activated your uv environment. Always use `uv run ...` to ensure the correct environment and dependencies are used.
 
+#### Sample Data Files
 These examples work with the sample data files in the `data/` directory:
-- `employee_data.xlsx` - Sample employee information
-- `sales_data.csv` - Sample sales metrics  
-- `market_report.txt` - Sample market analysis text
+- **`employee_data.xlsx`** - Sample employee information with salary, performance scores
+- **`sales_data.csv`** - Sample sales metrics with product categories and revenue
+- **`market_report.txt`** - Sample market analysis text for natural language processing
 
 ## � API vs Local Code: When to Use What?
 

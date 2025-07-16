@@ -300,13 +300,20 @@ class TaskOrchestrator:
             workflow_success = all(result.get("success", False) for result in results)
             execution_time = time.time() - start_time
             
+            # Get the final result from the last successful step
+            final_result = None
+            if results and workflow_success:
+                final_result = results[-1].get("response", "")
+            
             workflow_result = {
                 "success": workflow_success,
                 "job_id": job_id,
                 "execution_time": execution_time,
+                "total_execution_time": execution_time,  # Add this for compatibility
                 "workflow_steps": len(workflow),
                 "completed_steps": len(results),
                 "results": results,
+                "final_result": final_result,  # Add the final result
                 "orchestrator": "TaskOrchestrator"
             }
             
