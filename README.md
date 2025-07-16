@@ -1,6 +1,8 @@
-# 🧠 Autogen Agent Orchestration Project
+# 🧠 Ingenious Lite: Simple Autogen Agent Orchestration Project
 
-A modular and testable Python project that uses the **Autogen API**, supporting both **OpenAI** and **DeepSeek** as language model providers with a FastAPI-based orchestration system.
+A modular and testable Python project that uses the **Autogen API**, supporting both **OpenAI** and **DeepSeek** as language model providers with a FastAPI-based orchestration system. The focus of this project is to make prototyping software testable and highly accessible via API or programmatic calls. It's structured to keep invocation simple as we navigate through complex workflows.
+
+The main objective is to make the creation and chaining of agents and fetching the output highly visible and testable through prototype creation. You only need to specify the API key and model name to get this running.
 
 
 ## 🛠️ Setup Instructions
