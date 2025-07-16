@@ -634,7 +634,7 @@ orchestrator = TaskOrchestrator()
 print("Available agents:", orchestrator.list_agents())
 
 # Execute a task directly
-task_result = orchestrator.execute_agent_task(
+task_result = orchestrator.run_agent(
     agent_name="data_analyst",
     task_data={
         "data": "Revenue: Q1=$50k, Q2=$75k, Q3=$90k, Q4=$85k",
@@ -657,17 +657,29 @@ from api.orchestrator import TaskOrchestrator
 async def run_multiple_agents():
     orchestrator = TaskOrchestrator()
     
-    # Run multiple agents concurrently
+    # Run multiple agents concurrently using asyncio
+    async def run_agent_async(agent_name, task_data, provider):
+        # Wrap the sync method in an async function
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, 
+            lambda: orchestrator.run_agent(
+                agent_name=agent_name,
+                task_data=task_data,
+                provider=provider
+            )
+        )
+    
     tasks = [
-        orchestrator.execute_agent_task(
-            "data_analyst", 
-            {"data": "Q1 metrics", "context": "Financial analysis"},
-            "openai"  # Default to OpenAI, fallback to DeepSeek automatically
+        run_agent_async(
+            agent_name="data_analyst",
+            task_data={"data": "Q1 metrics", "context": "Financial analysis"},
+            provider="openai"  # Default to OpenAI, fallback to DeepSeek automatically
         ),
-        orchestrator.execute_agent_task(
-            "content_writer",
-            {"topic": "Q1 Report", "audience": "executives"},
-            "openai"  # Default to OpenAI, fallback to DeepSeek automatically
+        run_agent_async(
+            agent_name="content_writer",
+            task_data={"topic": "Q1 Report", "audience": "executives"},
+            provider="openai"  # Default to OpenAI, fallback to DeepSeek automatically
         )
     ]
     
@@ -709,7 +721,7 @@ orchestrator = TaskOrchestrator()
 orchestrator.register_agent("my_custom", MyCustomAgent)
 
 # Use your custom agent
-result = orchestrator.execute_agent_task(
+result = orchestrator.run_agent(
     "my_custom",
     {
         "task_type": "analysis",
